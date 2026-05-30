@@ -34,9 +34,10 @@ type AppShellProps = {
   children: ReactNode;
   contextDock: ReactNode;
   quickCapture: ReactNode;
+  backendStatus?: "checking" | "online" | "offline";
 };
 
-export function AppShell({ children, contextDock, quickCapture }: AppShellProps) {
+export function AppShell({ children, contextDock, quickCapture, backendStatus = "checking" }: AppShellProps) {
   const location = useLocation();
   
   return (
@@ -44,7 +45,9 @@ export function AppShell({ children, contextDock, quickCapture }: AppShellProps)
       {/* Mobile Header */}
       <header className="mobile-header">
         <h1>QiLife</h1>
-        <span className="mobile-mock-badge">Local mock mode</span>
+        <span className="mobile-mock-badge">
+          {backendStatus === "online" ? "Backend connected" : backendStatus === "offline" ? "Local fallback mode" : "Checking backend..."}
+        </span>
       </header>
 
       {/* Left Rail (Desktop) */}
@@ -83,7 +86,7 @@ export function AppShell({ children, contextDock, quickCapture }: AppShellProps)
         </nav>
 
         <div className="rail-footer">
-          QiLife v1 · Local mock mode
+          QiLife v1 · {backendStatus === "online" ? "Backend connected" : backendStatus === "offline" ? "Local fallback mode" : "Checking backend..."}
         </div>
       </aside>
 
@@ -92,8 +95,8 @@ export function AppShell({ children, contextDock, quickCapture }: AppShellProps)
         <header className="workspace-header">
           <span className="workspace-breadcrumb">QiLife v1 Spine</span>
           <span className="workspace-status-dot">
-            <span className="status-dot" />
-            Local mock mode
+            <span className="status-dot" style={{ backgroundColor: backendStatus === "online" ? "var(--status-new)" : backendStatus === "offline" ? "var(--status-waiting)" : "var(--ink-400)" }} />
+            {backendStatus === "online" ? "Backend connected" : backendStatus === "offline" ? "Local fallback mode" : "Checking backend..."}
           </span>
         </header>
         {children}

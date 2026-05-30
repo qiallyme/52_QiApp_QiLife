@@ -14,15 +14,25 @@ import { TodayPage } from "./pages/today-page";
 import { CapturePage } from "./pages/capture-page";
 import { ReviewPage } from "./pages/review-page";
 
-export default function App() {
   const [refreshToken, setRefreshToken] = useState(0);
+  const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking");
+
+  useEffect(() => {
+    checkBackendHealth().then(isUp => {
+      setBackendStatus(isUp ? "online" : "offline");
+    });
+  }, []);
 
   function handleCaptured() {
     setRefreshToken((n) => n + 1);
   }
 
   return (
-    <AppShell contextDock={<ContextDock />} quickCapture={<QuickCapture onCaptured={handleCaptured} />}>
+    <AppShell 
+      contextDock={<ContextDock />} 
+      quickCapture={<QuickCapture onCaptured={handleCaptured} />}
+      backendStatus={backendStatus}
+    >
       <Routes>
         <Route path="/" element={<TodayPage refreshToken={refreshToken} />} />
         <Route path="/capture" element={<CapturePage />} />
