@@ -11,6 +11,8 @@ import { PlaceholderPage } from "./pages/placeholder-page";
 import { ThreadsPage } from "./pages/threads-page";
 import { TimelinePage } from "./pages/timeline-page";
 import { TodayPage } from "./pages/today-page";
+import { CapturePage } from "./pages/capture-page";
+import { ReviewPage } from "./pages/review-page";
 
 export default function App() {
   const [refreshToken, setRefreshToken] = useState(0);
@@ -23,6 +25,8 @@ export default function App() {
     <AppShell contextDock={<ContextDock />} quickCapture={<QuickCapture onCaptured={handleCaptured} />}>
       <Routes>
         <Route path="/" element={<TodayPage refreshToken={refreshToken} />} />
+        <Route path="/capture" element={<CapturePage />} />
+        <Route path="/review" element={<ReviewPage />} />
         <Route path="/timeline" element={<TimelinePage refreshToken={refreshToken} />} />
         <Route path="/inbox" element={<InboxPage refreshToken={refreshToken} />} />
         <Route path="/threads" element={<ThreadsPage refreshToken={refreshToken} />} />

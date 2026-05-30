@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 // ─── Status Badge ─────────────────────────────────────────────────
 export function StatusBadge({ status }: { status: string }) {
   const cls = `badge badge-${status.replace(/_/g, "_")}`;
@@ -26,7 +28,7 @@ export function StateError({ message }: { message: string }) {
 }
 
 // ─── State: Empty ─────────────────────────────────────────────────
-export function StateEmpty({ icon, text }: { icon: string; text: string }) {
+export function StateEmpty({ icon, text }: { icon: ReactNode; text: string }) {
   return (
     <div className="state-empty">
       <div className="state-empty-icon">{icon}</div>

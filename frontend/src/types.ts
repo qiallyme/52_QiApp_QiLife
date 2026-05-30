@@ -89,3 +89,16 @@ export type TimelineRow = {
   bucket_code: string;
   payload: Record<string, unknown>;
 };
+
+export type Draft = {
+  id: string;
+  createdAt: string;
+  title: string;
+  sourceType?: string;
+  rawText: string;
+  suggestedType: string;
+  summary: string;
+  suggestedTags: string[];
+  suggestedPriority: string;
+  status: "draft";
+};

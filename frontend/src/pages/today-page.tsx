@@ -1,25 +1,21 @@
-import { useApi } from "../hooks/use-api";
-import type { Action, Qibit, TimelineRow } from "../types";
-import { StatusBadge, PriorityBadge, StateEmpty, StateLoading, StateError } from "./shared";
-import { formatDate, formatRelative } from "../utils/format";
+import { useEffect, useState } from "react";
+import type { TimelineRow } from "../types";
+import { StateEmpty } from "./shared";
+import { formatRelative } from "../utils/format";
+import { getTimelineItems } from "../utils/storage";
+import { CheckCircle, History, Zap, FileText, DollarSign, Calendar, Heart, Circle } from "lucide-react";
 
 type Props = { refreshToken: number };
 
 export function TodayPage({ refreshToken }: Props) {
-  const actions  = useApi<Action[]>("/api/actions", [], refreshToken);
-  const qibits   = useApi<Qibit[]>("/api/qibits", [], refreshToken);
-  const timeline = useApi<TimelineRow[]>("/api/timeline", [], refreshToken);
+  const [timelineData, setTimelineData] = useState<TimelineRow[]>([]);
+
+  useEffect(() => {
+    setTimelineData(getTimelineItems());
+  }, [refreshToken]);
 
   const today = new Date().toDateString();
-  const dueActions = actions.data.filter(
-    (a) => a.status !== "completed" && (a.scheduled_for || a.status === "waiting_on")
-  ).slice(0, 5);
-
-  const recentQibits = qibits.data.slice(0, 5);
-  const openLoops = actions.data.filter(
-    (a) => a.status === "waiting_on"
-  ).slice(0, 4);
-  const recentTimeline = timeline.data.slice(0, 6);
+  const recentTimeline = timelineData.slice(0, 6);
 
   return (
     <div className="page-stack">
@@ -27,120 +23,66 @@ export function TodayPage({ refreshToken }: Props) {
         <div className="section-tag">Today · {today}</div>
         <h2>Run life from the spine.</h2>
         <p>
-          Scheduled work, open loops, recent QiBits, and the live timeline signal in one
-          command view. Capture anything below.
+          Scheduled work, open loops, and the live timeline signal in one
+          command view. Capture anything to get started.
         </p>
       </section>
 
       <div className="two-col">
-        {/* Due & Scheduled */}
+        {/* Due & Scheduled (Mock Empty) */}
         <div className="card">
           <div className="card-header">
             <span className="card-title">Due &amp; Scheduled</span>
-            <span className="card-count">{dueActions.length}</span>
+            <span className="card-count">0</span>
           </div>
-          {actions.loading && <StateLoading />}
-          {actions.error && <StateError message={actions.error} />}
-          {!actions.loading && dueActions.length === 0 && (
-            <StateEmpty icon="✓" text="No scheduled actions today." />
-          )}
-          {dueActions.map((a) => (
-            <div key={a.id} className="item-row">
-              <div className="item-main">
-                <div className="item-title">{a.title}</div>
-                {a.scheduled_for && (
-                  <div className="item-sub">{formatDate(a.scheduled_for)}</div>
-                )}
-                <div className="item-meta">
-                  <StatusBadge status={a.status} />
-                  <PriorityBadge priority={a.priority} />
-                </div>
-              </div>
-            </div>
-          ))}
+          <StateEmpty icon={<CheckCircle size={24} />} text="No scheduled actions yet." />
         </div>
 
-        {/* Recent QiBits */}
+        {/* Recent QiBits (Mock Empty) */}
         <div className="card">
           <div className="card-header">
             <span className="card-title">Recent QiBits</span>
-            <span className="card-count">{qibits.data.length}</span>
+            <span className="card-count">0</span>
           </div>
-          {qibits.loading && <StateLoading />}
-          {qibits.error && <StateError message={qibits.error} />}
-          {!qibits.loading && recentQibits.length === 0 && (
-            <StateEmpty icon="◈" text="No QiBits yet. Capture one below." />
-          )}
-          {recentQibits.map((q) => (
-            <div key={q.id} className="item-row">
-              <div className="item-main">
-                <div className="item-title">{q.title}</div>
-                <div className="item-sub" style={{ marginBottom: 4 }}>
-                  {q.raw_capture.length > 80
-                    ? q.raw_capture.slice(0, 80) + "…"
-                    : q.raw_capture}
-                </div>
-                <div className="item-meta">
-                  <StatusBadge status={q.status} />
-                  <span className="badge badge-bucket">B{q.bucket_code}</span>
-                  <span className="item-sub">{formatRelative(q.captured_at)}</span>
-                </div>
-              </div>
-            </div>
-          ))}
+          <StateEmpty icon={<Zap size={24} />} text="No QiBits captured yet. Use the Capture page." />
         </div>
       </div>
-
-      {/* Open Loops */}
-      {openLoops.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">⏳ Open Loops — Waiting On</span>
-            <span className="card-count">{openLoops.length}</span>
-          </div>
-          {openLoops.map((a) => (
-            <div key={a.id} className="item-row">
-              <div className="item-main">
-                <div className="item-title">{a.title}</div>
-                {a.description && <div className="item-sub">{a.description}</div>}
-              </div>
-              <StatusBadge status={a.status} />
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Timeline Snapshot */}
       <div className="card">
         <div className="card-header">
           <span className="card-title">Timeline Snapshot</span>
-          <span className="card-count">{timeline.data.length} entries</span>
+          <span className="card-count">{timelineData.length} entries</span>
         </div>
-        {timeline.loading && <StateLoading />}
-        {timeline.error && <StateError message={timeline.error} />}
-        {!timeline.loading && recentTimeline.length === 0 && (
-          <StateEmpty icon="◈" text="Timeline is empty. Start capturing." />
+        {recentTimeline.length === 0 ? (
+          <StateEmpty icon={<History size={24} />} text="Timeline is empty. Start capturing." />
+        ) : (
+          recentTimeline.map((row) => (
+            <TimelineEntry key={`${row.record_type}-${row.id}`} row={row} />
+          ))
         )}
-        {recentTimeline.map((row) => (
-          <TimelineEntry key={`${row.record_type}-${row.id}`} row={row} />
-        ))}
       </div>
     </div>
   );
 }
 
 function TimelineEntry({ row }: { row: TimelineRow }) {
-  const icons: Record<string, string> = {
-    qibits: "◈",
-    actions: "◷",
-    transactions: "◉",
-    events: "◻",
-    daily_summaries: "≡",
+  const renderIcon = (type: string) => {
+    switch (type) {
+      case "qibits": return <Zap size={18} />;
+      case "actions": return <CheckCircle size={18} />;
+      case "transactions": return <DollarSign size={18} />;
+      case "events": return <Calendar size={18} />;
+      case "daily_summaries": return <FileText size={18} />;
+      case "care": return <Heart size={18} />;
+      default: return <Circle size={18} />;
+    }
   };
+
   return (
     <div className="timeline-entry">
       <div className={`timeline-icon timeline-icon-${row.record_type}`}>
-        {icons[row.record_type] ?? "◆"}
+        {renderIcon(row.record_type)}
       </div>
       <div className="timeline-body">
         <div className="item-title">{row.title}</div>

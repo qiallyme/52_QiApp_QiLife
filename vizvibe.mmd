@@ -56,6 +56,12 @@ flowchart TD
     %% @phase1_detail_views [ai-task, opened, 2026-05-29, antigravity]
     phase1_detail_views("Phase 1 Remaining: Detail Views<br/><sub>QiBit detail, Thread detail,<br/>Action steps UI, QiBit edit<br/>(PUT endpoint + frontend form),<br/>soft-delete filter on all lists.</sub>")
 
+    %% @phase1_mock_slice [ai-task, closed, 2026-05-30, antigravity]
+    phase1_mock_slice("v1 Mock Vertical Slice<br/><sub>Implemented local-first capture<br/>flow: Capture → Mock Agent →<br/>Review → Timeline using<br/>localStorage and rule-based AI.</sub>")
+
+    %% @phase1_ux_rescue [ai-task, closed, 2026-05-30, antigravity]
+    phase1_ux_rescue("UX Rescue Pass<br/><sub>Dark-mode first redesign, high<br/>contrast inputs, mobile bottom<br/>navigation, removed fake API<br/>errors, accurate empty states.</sub>")
+
     %% === CONNECTIONS ===
     project_start --> phase0_docs
     phase0_docs --> phase1_schema
@@ -63,7 +69,9 @@ flowchart TD
     phase1_seed --> phase1_api
     phase1_api --> phase1_frontend
     phase1_frontend --> phase1_design
-    phase1_design --> phase1_detail_views
+    phase1_design --> phase1_mock_slice
+    phase1_mock_slice --> phase1_ux_rescue
+    phase1_ux_rescue --> phase1_detail_views
 
     phase1_detail_views --> phase2_today
     phase2_today --> phase2_calendar
@@ -79,7 +87,7 @@ flowchart TD
 
     %% === RECENT ===
     subgraph recent [RECENT]
-        phase1_design
+        phase1_ux_rescue
     end
 
     %% === STYLES ===
@@ -90,9 +98,9 @@ flowchart TD
     style phase1_seed fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
     style phase1_api fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
     style phase1_frontend fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
-
-    %% Recent (bright purple)
-    style phase1_design fill:#2d1f4e,stroke:#c084fc,color:#e9d5ff,stroke-width:2px
+    style phase1_design fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
+    style phase1_mock_slice fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
+    style phase1_ux_rescue fill:#2d1f4e,stroke:#c084fc,color:#e9d5ff,stroke-width:2px
     style recent fill:transparent,stroke:#c084fc,color:#c084fc,stroke-width:2px,stroke-dasharray:5 5
 
     %% Open (soft green)
