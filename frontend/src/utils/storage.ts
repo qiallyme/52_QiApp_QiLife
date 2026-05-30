@@ -25,3 +25,17 @@ export function addTimelineItem(item: TimelineRow) {
   const items = getTimelineItems();
   localStorage.setItem(TIMELINE_KEY, JSON.stringify([item, ...items]));
 }
+
+export function updateTimelineItem(id: string, updates: Partial<TimelineRow>) {
+  const items = getTimelineItems();
+  const idx = items.findIndex(i => i.id === id);
+  if (idx !== -1) {
+    items[idx] = { ...items[idx], ...updates };
+    localStorage.setItem(TIMELINE_KEY, JSON.stringify(items));
+  }
+}
+
+export function deleteTimelineItem(id: string) {
+  const items = getTimelineItems().filter(i => i.id !== id);
+  localStorage.setItem(TIMELINE_KEY, JSON.stringify(items));
+}

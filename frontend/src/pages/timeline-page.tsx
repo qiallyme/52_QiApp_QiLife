@@ -4,6 +4,7 @@ import type { TimelineRow } from "../types";
 import { StateEmpty } from "./shared";
 import { formatRelative } from "../utils/format";
 import { Search, History, Zap, CheckCircle, DollarSign, Calendar, FileText, Heart, Circle } from "lucide-react";
+import { EntryModal } from "../components/entry-modal";
 
 type Props = { refreshToken: number };
 
@@ -12,6 +13,7 @@ const TYPE_OPTIONS = ["all", "qibits", "actions", "transactions", "events", "dai
 export function TimelinePage({ refreshToken }: Props) {
   const [data, setData] = useState<TimelineRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEntry, setSelectedEntry] = useState<TimelineRow | null>(null);
 
   useEffect(() => {
     setData(getTimelineItems());
@@ -81,7 +83,12 @@ export function TimelinePage({ refreshToken }: Props) {
         )}
 
         {visible.map((row) => (
-          <div key={`${row.record_type}-${row.id}`} className="timeline-entry">
+          <div 
+            key={`${row.record_type}-${row.id}`} 
+            className="timeline-entry" 
+            style={{ cursor: "pointer" }} 
+            onClick={() => setSelectedEntry(row)}
+          >
             <div className={`timeline-icon timeline-icon-${row.record_type}`}>
               {renderIcon(row.record_type)}
             </div>
@@ -102,6 +109,17 @@ export function TimelinePage({ refreshToken }: Props) {
           </div>
         )}
       </div>
+
+      {selectedEntry && (
+        <EntryModal
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+          onSaved={() => {
+            setSelectedEntry(null);
+            setData(getTimelineItems()); // Refresh local data
+          }}
+        />
+      )}
     </div>
   );
 }

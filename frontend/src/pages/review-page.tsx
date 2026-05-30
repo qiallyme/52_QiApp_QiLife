@@ -82,6 +82,19 @@ export function ReviewPage() {
       </section>
 
       <form className="card" onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ padding: 16, background: "rgba(10, 132, 255, 0.05)", borderRadius: "var(--r-md)", marginBottom: 8, border: "1px dashed rgba(10, 132, 255, 0.2)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <span className="form-label" style={{ color: "var(--accent-blue)", margin: 0 }}>Agent Draft (v1 Mock Mode)</span>
+            <span style={{ fontSize: 11, color: "var(--ink-500)" }}>Confidence: <strong style={{ color: "var(--status-new)" }}>Medium</strong></span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13, color: "var(--ink-400)" }}>
+            <div><strong>Detected Type:</strong> {draft.suggestedType}</div>
+            <div><strong>Suggested Priority:</strong> {draft.suggestedPriority}</div>
+            <div style={{ gridColumn: "1 / -1" }}><strong>Suggested Tags:</strong> {draft.suggestedTags.join(", ") || "none"}</div>
+            <div style={{ gridColumn: "1 / -1" }}><strong>Suggested Summary:</strong> {draft.summary || "none"}</div>
+          </div>
+        </div>
+
         <div>
           <label className="form-label">Final Title</label>
           <input 

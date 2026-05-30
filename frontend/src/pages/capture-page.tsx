@@ -35,7 +35,7 @@ export function CapturePage() {
         <p>Raw text, ideas, tasks. The agent will process and structure it for you.</p>
       </section>
 
-      <form className="card" onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <form className="card" onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
           <label className="form-label">Title (Optional)</label>
           <input 
@@ -54,7 +54,7 @@ export function CapturePage() {
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             placeholder="Type your thoughts, tasks, or paste something..."
-            rows={6}
+            rows={5}
             required
             style={{ fontSize: "16px", lineHeight: 1.6 }}
           />
@@ -71,6 +71,14 @@ export function CapturePage() {
               <option key={st} value={st}>{st === "" ? "Auto-detect" : st.charAt(0).toUpperCase() + st.slice(1)}</option>
             ))}
           </select>
+        </div>
+        
+        <div style={{ padding: 16, background: "rgba(10, 132, 255, 0.05)", borderRadius: "var(--r-md)", border: "1px dashed rgba(10, 132, 255, 0.2)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span className="form-label" style={{ color: "var(--accent-blue)", margin: 0 }}>Agent Processing (v1 Mock Mode)</span>
+            <span style={{ fontSize: 11, color: "var(--ink-500)" }}>Awaiting capture...</span>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--ink-400)" }}>The mock agent will analyze your raw text to suggest Record Type, Bucket, Priority, and Tags once you submit.</p>
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
