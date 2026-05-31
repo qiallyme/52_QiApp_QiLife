@@ -26,8 +26,16 @@ export function useApi<T>(path: string, initialData: T, refreshToken: number): A
         const next = await apiFetch<T>(path);
         if (active) setData(next);
       } catch (caught) {
-        if (active)
-          setError(caught instanceof Error ? caught.message : "Unknown API error");
+        if (active) {
+          const msg = caught instanceof Error ? caught.message : "Unknown API error";
+          if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+            console.warn(`[Mock Fallback] API offline for ${path}. Using empty initial data.`);
+            setError(null);
+            setData(initialData);
+          } else {
+            setError(msg);
+          }
+        }
       } finally {
         if (active) setLoading(false);
       }

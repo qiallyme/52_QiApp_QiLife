@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { TimelineRow } from "../types";
 import { StateEmpty } from "./shared";
 import { formatRelative } from "../utils/format";
 import { getTimelineItems } from "../utils/storage";
-import { CheckCircle, History, Zap, FileText, DollarSign, Calendar, Heart, Circle } from "lucide-react";
+import { CheckCircle, History, Zap, FileText, DollarSign, Calendar, Heart, Circle, Plus } from "lucide-react";
 
 type Props = { refreshToken: number };
 
@@ -19,13 +20,19 @@ export function TodayPage({ refreshToken }: Props) {
 
   return (
     <div className="page-stack">
-      <section className="hero-panel">
-        <div className="section-tag">Today · {today}</div>
-        <h2>Run life from the spine.</h2>
-        <p>
-          Scheduled work, open loops, and the live timeline signal in one
-          command view. Capture anything to get started.
-        </p>
+      <section className="hero-panel" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div className="section-tag">Today · {today}</div>
+          <h2>Run life from the spine.</h2>
+          <p>
+            Scheduled work, open loops, and the live timeline signal in one
+            command view.
+          </p>
+        </div>
+        <Link to="/capture" className="btn btn-accent" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", fontSize: "16px" }}>
+          <Plus size={20} />
+          New Capture
+        </Link>
       </section>
 
       <div className="two-col">

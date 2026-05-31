@@ -13,6 +13,17 @@ QiLife is an AI Life Copilot with a Personal LifeDesk cockpit. It captures what 
 - **Backend App**: Hosted on `qiserver` running the real FastAPI application with local SQLite.
 - **Optional Gateway**: A future Cloudflare Worker may act as a proxy or gateway, but is not the primary backend currently.
 
+### Live Environment
+- **URL**: [https://qilife.qially.com](https://qilife.qially.com) *(Placeholder for production domain)*
+- **Current Mode**: The frontend is live. If the backend is unreachable, the app falls back to Local Mock Mode safely without showing "Failed to fetch" errors.
+- **Next Step**: Connect the `qiserver` FastAPI API securely through `VITE_API_BASE_URL`.
+
+### Cloudflare Pages Settings
+- **Root directory**: `frontend`
+- **Build command**: `npm run build`
+- **Build output directory**: `dist`
+- **Install command**: `npm ci`
+
 ### Environment Setup
 - **Local Dev API**: `http://localhost:8000`
 - **Production API**: `https://qilife-api.qially.com`
