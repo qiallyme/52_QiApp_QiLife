@@ -1,3 +1,5 @@
+import type { Action, AgentDraft, KnowledgeCategory, KnowledgeDoc, QiBit, ReviewSaveResponse, TimelineRow } from "../types";
+
 const rawApiBase = import.meta.env.VITE_API_BASE_URL?.trim() ?? "";
 
 export const API_BASE = rawApiBase.replace(/\/$/, "");
@@ -53,4 +55,60 @@ export async function checkBackendHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function saveReviewToBackend(payload: {
+  qibit: QiBit;
+  agentDraft: AgentDraft;
+  acceptedActions: Action[];
+  timeline: Record<string, unknown>;
+}): Promise<ReviewSaveResponse> {
+  return apiFetch<ReviewSaveResponse>("/api/review/save", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateActionStatusOnBackend(actionId: string, status: Action["status"], dueHint?: string, sourceText?: string): Promise<Action> {
+  return apiFetch<Action>(`/api/actions/${actionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status,
+      dueHint,
+      sourceText,
+    }),
+  });
+}
+
+export async function listQiBitsFromBackend(): Promise<QiBit[]> {
+  return apiFetch<QiBit[]>("/api/qibits");
+}
+
+export async function getQiBitFromBackend(id: string): Promise<QiBit> {
+  return apiFetch<QiBit>(`/api/qibits/${id}`);
+}
+
+export async function listActionsFromBackend(): Promise<Action[]> {
+  return apiFetch<Action[]>("/api/actions");
+}
+
+export async function getActionFromBackend(id: string): Promise<Action> {
+  return apiFetch<Action>(`/api/actions/${id}`);
+}
+
+export async function listTimelineFromBackend(): Promise<TimelineRow[]> {
+  return apiFetch<TimelineRow[]>("/api/timeline");
+}
+
+export async function listKnowledgeDocs(): Promise<KnowledgeCategory[]> {
+  return apiFetch<KnowledgeCategory[]>("/api/knowledge/docs");
+}
+
+export async function searchKnowledgeDocs(query: string): Promise<KnowledgeDoc[]> {
+  const encoded = encodeURIComponent(query);
+  return apiFetch<KnowledgeDoc[]>(`/api/knowledge/search?q=${encoded}`);
+}
+
+export async function getKnowledgeDoc(docId: string): Promise<KnowledgeDoc> {
+  return apiFetch<KnowledgeDoc>(`/api/knowledge/docs/${docId}`);
 }

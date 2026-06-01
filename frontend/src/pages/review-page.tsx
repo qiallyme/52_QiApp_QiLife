@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckSquare } from "lucide-react";
 import { Action, Draft, Priority, QiBit, QiBitType } from "../types";
-import { clearPendingDraft, getPendingDraft, saveReviewResult } from "../utils/storage";
+import { saveReviewToBackend } from "../api/client";
+import { clearPendingDraft, getPendingDraft, persistReviewResult } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
 const TYPE_OPTIONS: Array<{ value: QiBitType; label: string }> = [
@@ -21,6 +22,7 @@ type ReviewAction = Action & { kept: boolean };
 type SaveResult = {
   qibit: QiBit;
   actionCount: number;
+  mode: "backend" | "local";
 };
 
 export function ReviewPage() {
@@ -33,6 +35,7 @@ export function ReviewPage() {
   const [space, setSpace] = useState("General");
   const [actions, setActions] = useState<ReviewAction[]>([]);
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving">("idle");
 
   useEffect(() => {
     const pending = getPendingDraft();
@@ -61,10 +64,12 @@ export function ReviewPage() {
     setDraft(null);
   }
 
-  function handleSave(event: FormEvent) {
+  async function handleSave(event: FormEvent) {
     event.preventDefault();
     if (!draft) return;
+    if (saveState === "saving") return;
 
+    setSaveState("saving");
     const now = new Date().toISOString();
     const finalQiBit: QiBit = {
       id: draft.id,
@@ -92,9 +97,41 @@ export function ReviewPage() {
         priority: action.priority || priority,
       }));
 
-    saveReviewResult(finalQiBit, acceptedActions);
-    setSaveResult({ qibit: finalQiBit, actionCount: acceptedActions.length });
-    setDraft(null);
+    try {
+      const response = await saveReviewToBackend({
+        qibit: finalQiBit,
+        agentDraft: draft.agentDraft,
+        acceptedActions,
+        timeline: {
+          title: finalQiBit.title,
+          summary: finalQiBit.summary,
+          type: finalQiBit.type,
+          priority: finalQiBit.priority,
+          tags: finalQiBit.tags,
+          space: finalQiBit.space,
+          createdAt: finalQiBit.createdAt,
+          linkedActions: acceptedActions.map((action) => ({
+            id: action.id,
+            title: action.title,
+            status: action.status,
+            priority: action.priority,
+            dueHint: action.dueHint,
+          })),
+          insight: finalQiBit.insight,
+        },
+      });
+
+      persistReviewResult(response.qibit, response.actions, response.timelineItem);
+      setSaveResult({ qibit: response.qibit, actionCount: response.actions.length, mode: "backend" });
+      setDraft(null);
+    } catch (error) {
+      console.warn("Review save falling back to local storage.", error);
+      persistReviewResult(finalQiBit, acceptedActions);
+      setSaveResult({ qibit: finalQiBit, actionCount: acceptedActions.length, mode: "local" });
+      setDraft(null);
+    } finally {
+      setSaveState("idle");
+    }
   }
 
   if (saveResult) {
@@ -105,7 +142,7 @@ export function ReviewPage() {
             <div className="section-tag subdued">Saved</div>
             <h2>{saveResult.qibit.title}</h2>
             <p>
-              Saved to local QiBits with {saveResult.actionCount} action{saveResult.actionCount === 1 ? "" : "s"} and a timeline entry.
+              Saved in {saveResult.mode === "backend" ? "backend-connected mode" : "local fallback mode"} with {saveResult.actionCount} action{saveResult.actionCount === 1 ? "" : "s"} and a timeline entry.
             </p>
           </div>
         </section>
@@ -289,8 +326,8 @@ export function ReviewPage() {
             <button type="button" className="btn btn-ghost" onClick={handleDiscard}>
               Discard Draft
             </button>
-            <button type="submit" className="btn btn-primary">
-              Save QiBit
+            <button type="submit" className="btn btn-primary" disabled={saveState === "saving"}>
+              {saveState === "saving" ? "Saving..." : "Save QiBit"}
             </button>
           </div>
         </section>

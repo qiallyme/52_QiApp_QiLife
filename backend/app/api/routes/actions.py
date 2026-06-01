@@ -102,10 +102,13 @@ def update_action(action_id: str, payload: ActionUpdateRequest, session: Session
         action.status = "open"
         action.completed_at = None
 
+    metadata = {**(action.metadata_json or {})}
     if payload.dueHint is not None:
-        action.metadata_json["due_hint"] = payload.dueHint
+        metadata["due_hint"] = payload.dueHint
     if payload.sourceText is not None:
-        action.metadata_json["source_text"] = payload.sourceText
+        metadata["source_text"] = payload.sourceText
+    action.metadata_json = metadata
+    action.updated_at = datetime.utcnow()
 
     session.add(action)
     session.commit()

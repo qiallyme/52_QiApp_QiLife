@@ -6,7 +6,11 @@ import { formatDate, formatRelative } from "../utils/format";
 import { getActionsForQiBit, getQiBitById, getQiBits, getTimelineItemById } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
-export function QiBitDetailPage() {
+type Props = {
+  refreshToken: number;
+};
+
+export function QiBitDetailPage({ refreshToken }: Props) {
   const navigate = useNavigate();
   const { id = "" } = useParams();
   const [qibit, setQiBit] = useState<QiBit | null>(null);
@@ -34,7 +38,7 @@ export function QiBitDetailPage() {
     });
 
     setRelatedQiBits(related.slice(0, 6));
-  }, [id]);
+  }, [id, refreshToken]);
 
   const timelineQuery = useMemo(() => {
     if (!qibit) return "/timeline";

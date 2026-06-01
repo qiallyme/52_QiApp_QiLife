@@ -123,6 +123,7 @@ function normalizeAction(raw: Record<string, unknown>, rawTextFallback = "", qib
             ? raw.scheduled_for
             : undefined,
     sourceText,
+    qibitTitle: typeof raw.qibitTitle === "string" ? raw.qibitTitle : undefined,
     description: typeof raw.description === "string" ? raw.description : undefined,
     bucket_code: typeof raw.bucket_code === "string" ? raw.bucket_code : undefined,
     thread_id: typeof raw.thread_id === "string" ? raw.thread_id : null,
@@ -393,6 +394,10 @@ export function saveQiBit(qibit: QiBit) {
   writeJson(QIBITS_KEY, sortNewest(upsertById(existing, normalizeQiBit(qibit as unknown as Record<string, unknown>))));
 }
 
+export function replaceQiBits(qibits: QiBit[]) {
+  writeJson(QIBITS_KEY, sortNewest(qibits.map((qibit) => normalizeQiBit(qibit as unknown as Record<string, unknown>))));
+}
+
 export function getTimelineItems(): TimelineRow[] {
   return sortNewest(readJson<Record<string, unknown>[]>(TIMELINE_KEY, []).map(normalizeTimelineRow));
 }
@@ -404,6 +409,10 @@ export function getTimelineItemById(id: string): TimelineRow | null {
 export function saveTimelineItem(item: TimelineRow) {
   const existing = getTimelineItems();
   writeJson(TIMELINE_KEY, sortNewest(upsertById(existing, normalizeTimelineRow(item as unknown as Record<string, unknown>))));
+}
+
+export function replaceTimelineItems(items: TimelineRow[]) {
+  writeJson(TIMELINE_KEY, sortNewest(items.map((item) => normalizeTimelineRow(item as unknown as Record<string, unknown>))));
 }
 
 export function updateTimelineItem(id: string, updates: Partial<TimelineRow>) {
@@ -454,6 +463,10 @@ export function saveActions(actions: Action[]) {
   writeJson(ACTIONS_KEY, sortNewest(merged));
 }
 
+export function replaceActions(actions: Action[]) {
+  writeJson(ACTIONS_KEY, sortNewest(actions.map((action) => normalizeAction(action as unknown as Record<string, unknown>))));
+}
+
 export function updateAction(id: string, updates: Partial<Action>) {
   const actions = getActions();
   const idx = actions.findIndex((action) => action.id === id);
@@ -501,16 +514,22 @@ export function deleteAction(id: string) {
 }
 
 export function saveReviewResult(qibit: QiBit, actions: Action[]) {
+  persistReviewResult(qibit, actions);
+}
+
+export function persistReviewResult(qibit: QiBit, actions: Action[], timelineItem?: TimelineRow) {
   saveQiBit(qibit);
   saveActions(actions);
-  saveTimelineItem({
-    id: qibit.id,
-    record_type: "qibit",
-    title: qibit.title,
-    timestamp: qibit.createdAt,
-    bucket_code: qibit.space,
-    payload: buildTimelinePayload(qibit, actions),
-  });
+  saveTimelineItem(
+    timelineItem ?? {
+      id: qibit.id,
+      record_type: "qibit",
+      title: qibit.title,
+      timestamp: qibit.createdAt,
+      bucket_code: qibit.space,
+      payload: buildTimelinePayload(qibit, actions),
+    },
+  );
   clearPendingDraft();
 }
 

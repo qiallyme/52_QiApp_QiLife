@@ -1,6 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { checkBackendHealth } from "./api/client";
+import { checkBackendHealth, listActionsFromBackend, listQiBitsFromBackend, listTimelineFromBackend } from "./api/client";
 
 import { AppShell } from "./components/app-shell";
 import { ContextDock } from "./components/context-dock";
@@ -18,6 +18,7 @@ import { CapturePage } from "./pages/capture-page";
 import { ReviewPage } from "./pages/review-page";
 import { QiBitDetailPage } from "./pages/qibit-detail-page";
 import { ActionDetailPage } from "./pages/action-detail-page";
+import { replaceActions, replaceQiBits, replaceTimelineItems } from "./utils/storage";
 
 export default function App() {
   const [refreshToken, setRefreshToken] = useState(0);
@@ -28,6 +29,28 @@ export default function App() {
       setBackendStatus(isUp ? "online" : "offline");
     });
   }, []);
+
+  useEffect(() => {
+    if (backendStatus !== "online") return;
+
+    let active = true;
+
+    Promise.all([listQiBitsFromBackend(), listActionsFromBackend(), listTimelineFromBackend()])
+      .then(([qibits, actions, timeline]) => {
+        if (!active) return;
+        replaceQiBits(qibits);
+        replaceActions(actions);
+        replaceTimelineItems(timeline);
+        setRefreshToken((n) => n + 1);
+      })
+      .catch((error) => {
+        console.warn("Backend sync failed. Keeping local fallback state.", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [backendStatus]);
 
   function handleCaptured() {
     setRefreshToken((n) => n + 1);
@@ -45,9 +68,9 @@ export default function App() {
         <Route path="/review" element={<ReviewPage />} />
         <Route path="/timeline" element={<TimelinePage refreshToken={refreshToken} />} />
         <Route path="/knowledge" element={<KnowledgePage backendStatus={backendStatus} />} />
-        <Route path="/actions" element={<ActionsPage />} />
-        <Route path="/qibits/:id" element={<QiBitDetailPage />} />
-        <Route path="/actions/:id" element={<ActionDetailPage />} />
+        <Route path="/actions" element={<ActionsPage refreshToken={refreshToken} />} />
+        <Route path="/qibits/:id" element={<QiBitDetailPage refreshToken={refreshToken} />} />
+        <Route path="/actions/:id" element={<ActionDetailPage refreshToken={refreshToken} />} />
         <Route path="/inbox" element={<InboxPage refreshToken={refreshToken} />} />
         <Route path="/people" element={<PeoplePage refreshToken={refreshToken} />} />
         <Route path="/more" element={<MorePage />} />

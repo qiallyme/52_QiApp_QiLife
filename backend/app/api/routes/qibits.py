@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
+from app.api.serializers import build_qibit_timeline_payload, load_bucket_map, serialize_action, serialize_qibit
 from app.db.models import AIOutput, Action, Link, Qibit
 from app.db.session import get_session
 
@@ -59,16 +60,38 @@ def capture_qibit(payload: QibitCaptureRequest, session: Session = Depends(get_s
 
 
 @router.get("")
-def list_qibits(session: Session = Depends(get_session)) -> list[Qibit]:
-    return session.exec(select(Qibit).order_by(Qibit.captured_at.desc())).all()
+def list_qibits(session: Session = Depends(get_session)) -> list[dict]:
+    qibits = session.exec(select(Qibit).order_by(Qibit.captured_at.desc())).all()
+    bucket_names = load_bucket_map(session)
+    actions = session.exec(select(Action)).all()
+    actions_by_qibit: dict[str, list[dict]] = {}
+
+    for action in actions:
+        if not action.source_qibit_id:
+            continue
+        actions_by_qibit.setdefault(action.source_qibit_id, []).append(serialize_action(action, bucket_names))
+
+    return [serialize_qibit(qibit, bucket_names, actions_by_qibit.get(qibit.id, [])) for qibit in qibits]
 
 
 @router.get("/{qibit_id}")
-def get_qibit(qibit_id: str, session: Session = Depends(get_session)) -> Qibit:
+def get_qibit(qibit_id: str, session: Session = Depends(get_session)) -> dict:
     qibit = session.get(Qibit, qibit_id)
     if qibit is None:
         raise HTTPException(status_code=404, detail="QiBit not found")
-    return qibit
+    bucket_names = load_bucket_map(session)
+    actions = session.exec(select(Action).where(Action.source_qibit_id == qibit_id)).all()
+    serialized_actions = [serialize_action(action, bucket_names, qibit.title) for action in actions]
+    payload = serialize_qibit(qibit, bucket_names, serialized_actions)
+    payload["timeline"] = {
+        "id": qibit.id,
+        "record_type": "qibit",
+        "title": qibit.title,
+        "timestamp": (qibit.happened_at or qibit.captured_at or qibit.created_at).isoformat(),
+        "bucket_code": qibit.bucket_code,
+        "payload": build_qibit_timeline_payload(qibit, serialized_actions, bucket_names),
+    }
+    return payload
 
 
 @router.post("/{qibit_id}/triage")

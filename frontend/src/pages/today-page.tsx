@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertCircle, ArrowRight, BookOpen, Brain, CheckCircle2, Clock3, FileText, History, Inbox, PlusCircle } from "lucide-react";
+import { updateActionStatusOnBackend } from "../api/client";
 import type { Action, Draft, QiBit, TimelineRow } from "../types";
 import { formatDate, formatRelative } from "../utils/format";
 import { getActions, getPendingDraft, getQiBits, getTimelineItems, updateActionStatus } from "../utils/storage";
@@ -36,8 +37,14 @@ export function TodayPage({ refreshToken }: Props) {
         ? `Latest saved QiBit: ${recentQiBits[0].title}`
         : "Capture the first item for today.";
 
-  function toggleActionStatus(action: Action) {
-    updateActionStatus(action.id, action.status === "open" ? "done" : "open");
+  async function toggleActionStatus(action: Action) {
+    const nextStatus = action.status === "open" ? "done" : "open";
+    try {
+      await updateActionStatusOnBackend(action.id, nextStatus, action.dueHint, action.sourceText);
+    } catch (error) {
+      console.warn("Action status update falling back to local storage.", error);
+    }
+    updateActionStatus(action.id, nextStatus);
     setLocalRefresh((value) => value + 1);
   }
 

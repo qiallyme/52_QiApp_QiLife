@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { updateActionStatusOnBackend } from "../api/client";
 import type { Action, QiBit } from "../types";
 import { formatDate, formatRelative } from "../utils/format";
 import { getActions, getQiBits, updateActionStatus } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
-export function ActionsPage() {
+type Props = {
+  refreshToken: number;
+};
+
+export function ActionsPage({ refreshToken }: Props) {
   const [actions, setActions] = useState<Action[]>([]);
   const [qibits, setQiBits] = useState<QiBit[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -15,7 +20,7 @@ export function ActionsPage() {
   useEffect(() => {
     setActions(getActions());
     setQiBits(getQiBits());
-  }, [localRefresh]);
+  }, [localRefresh, refreshToken]);
 
   const qibitTitleById = new Map(qibits.map((qibit) => [qibit.id, qibit.title]));
   const visible = actions.filter((action) => statusFilter === "all" || action.status === statusFilter);
@@ -26,8 +31,14 @@ export function ActionsPage() {
     done: actions.filter((action) => action.status === "done").length,
   };
 
-  function toggleStatus(action: Action) {
-    updateActionStatus(action.id, action.status === "open" ? "done" : "open");
+  async function toggleStatus(action: Action) {
+    const nextStatus = action.status === "open" ? "done" : "open";
+    try {
+      await updateActionStatusOnBackend(action.id, nextStatus, action.dueHint, action.sourceText);
+    } catch (error) {
+      console.warn("Action status update falling back to local storage.", error);
+    }
+    updateActionStatus(action.id, nextStatus);
     setLocalRefresh((value) => value + 1);
   }
 

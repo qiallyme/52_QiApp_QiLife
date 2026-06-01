@@ -56,6 +56,7 @@ export type Action = {
   priority: Priority;
   dueHint?: string;
   sourceText?: string;
+  qibitTitle?: string;
 
   // Legacy/API compatibility fields
   description?: string;
@@ -160,4 +161,26 @@ export type TimelineRow = {
   timestamp: string;
   bucket_code: string;
   payload: TimelinePayload;
+};
+
+export type ReviewSaveResponse = {
+  qibit: QiBit;
+  actions: Action[];
+  timelineItem: TimelineRow;
+};
+
+export type KnowledgeDoc = {
+  id: string;
+  title: string;
+  relativePath: string;
+  group: string;
+  content?: string;
+  excerpt?: string;
+};
+
+export type KnowledgeCategory = {
+  id: string;
+  title: string;
+  count: number;
+  docs: KnowledgeDoc[];
 };

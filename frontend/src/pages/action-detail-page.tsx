@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, History, Link2 } from "lucide-react";
+import { updateActionStatusOnBackend } from "../api/client";
 import type { Action, QiBit, TimelineRow } from "../types";
 import { formatDate, formatRelative } from "../utils/format";
 import { getActionById, getQiBitById, getTimelineItemById, updateActionStatus } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
-export function ActionDetailPage() {
+type Props = {
+  refreshToken: number;
+};
+
+export function ActionDetailPage({ refreshToken }: Props) {
   const navigate = useNavigate();
   const { id = "" } = useParams();
   const [action, setAction] = useState<Action | null>(null);
@@ -25,12 +30,17 @@ export function ActionDetailPage() {
 
     setQiBit(getQiBitById(nextAction.qibitId));
     setTimelineItem(getTimelineItemById(nextAction.qibitId));
-  }, [id]);
+  }, [id, refreshToken]);
 
-  function toggleStatus() {
+  async function toggleStatus() {
     if (!action) return;
 
     const nextStatus = action.status === "open" ? "done" : "open";
+    try {
+      await updateActionStatusOnBackend(action.id, nextStatus, action.dueHint, action.sourceText);
+    } catch (error) {
+      console.warn("Action status update falling back to local storage.", error);
+    }
     updateActionStatus(action.id, nextStatus);
     setAction({ ...action, status: nextStatus });
   }
