@@ -225,6 +225,53 @@ export function QiBitDetailPage({ refreshToken }: Props) {
             <span className="form-label">Confidence</span>
             <span className="badge badge-open">{qibit.agentDraft.confidence}</span>
           </div>
+
+          <div className="detail-block">
+            <span className="form-label">Queue</span>
+            <span>{qibit.bucket_code ?? qibit.space}</span>
+          </div>
+
+          <div className="detail-block">
+            <span className="form-label">Thread</span>
+            {qibit.thread_id ? (
+              <Link to={`/timeline?thread=${encodeURIComponent(qibit.thread_id)}`} className="chip-link">
+                {qibit.thread_id}
+              </Link>
+            ) : (
+              <span>No thread linked.</span>
+            )}
+          </div>
+
+          <div className="detail-block">
+            <span className="form-label">Future Slot</span>
+            {qibit.future_slot ? (
+              <Link to={`/timeline?slot=${encodeURIComponent(qibit.future_slot)}`} className="chip-link">
+                {qibit.future_slot.replace(/_/g, " ")}
+              </Link>
+            ) : (
+              <span>Not slotted yet.</span>
+            )}
+          </div>
+
+          <div className="detail-block">
+            <span className="form-label">Action Required</span>
+            <span>{qibit.action_required ? "Yes" : "No"}</span>
+          </div>
+
+          <div className="detail-block">
+            <span className="form-label">Linked People</span>
+            <div className="item-meta">
+              {qibit.linkedPeople && qibit.linkedPeople.length > 0 ? (
+                qibit.linkedPeople.map((person) => (
+                  <Link key={person.id} to={`/people/${person.id}`} className="chip-link">
+                    {person.display_name}
+                  </Link>
+                ))
+              ) : (
+                <span className="compact-text">No linked people saved.</span>
+              )}
+            </div>
+          </div>
         </section>
 
         <section className="card dense-card stack-md">

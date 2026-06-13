@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import { Calendar, FileText, Layers, MessageCircle, DollarSign } from "lucide-react";
+import { Calendar, FileText, Layers, LayoutDashboard, MessageCircle, DollarSign } from "lucide-react";
 
 const MODULES = [
+  { href: "/cockpit", label: "Cockpit", note: "Front door, launcher, and server surfaces carried over from QiAccess.", icon: <LayoutDashboard size={16} /> },
   { href: "/inbox", label: "Inbox", note: "API-backed triage queue when backend is connected.", icon: <Layers size={16} /> },
   { href: "/threads", label: "Threads", note: "Grouped situations, projects, and storylines.", icon: <Layers size={16} /> },
   { href: "/calendar", label: "Calendar", note: "Scheduled events and time-linked work.", icon: <Calendar size={16} /> },

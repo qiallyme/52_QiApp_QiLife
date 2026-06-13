@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, ArrowRight, BookOpen, Brain, CheckCircle2, Clock3, FileText, History, Inbox, PlusCircle } from "lucide-react";
+import { AlertCircle, ArrowRight, BookOpen, Brain, CheckCircle2, Clock3, FileText, History, Inbox, LayoutDashboard, PlusCircle } from "lucide-react";
 import { updateActionStatusOnBackend } from "../api/client";
 import type { Action, Draft, QiBit, TimelineRow } from "../types";
 import { formatDate, formatRelative } from "../utils/format";
-import { getActions, getPendingDraft, getQiBits, getTimelineItems, updateActionStatus } from "../utils/storage";
+import { getActions, getPendingDraft, getPeople, getQiBits, getThreads, getTimelineItems, updateActionStatus } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
 type Props = { refreshToken: number };
@@ -24,9 +24,16 @@ export function TodayPage({ refreshToken }: Props) {
   }, [refreshToken, localRefresh]);
 
   const openActions = actions.filter((action) => action.status === "open").slice(0, 6);
-  const recentQiBits = qibits.slice(0, 4);
+  const recentQiBits = qibits.filter((qibit) => qibit.status !== "new").slice(0, 4);
   const recentTimeline = timeline.slice(0, 5);
-  const insights = qibits.filter((qibit) => qibit.insight).slice(0, 3);
+  const insights = qibits.filter((qibit) => qibit.status !== "new" && qibit.insight).slice(0, 3);
+  const dueSoon = actions.filter((action) => action.status === "open" && action.dueHint).slice(0, 4);
+  const waitingOn = qibits.filter((qibit) => qibit.status === "waiting_on").slice(0, 3);
+  const slotted = qibits
+    .filter((qibit) => qibit.status !== "new" && qibit.future_slot && qibit.future_slot !== "later")
+    .slice(0, 4);
+  const activeThreads = getThreads().filter((thread) => thread.status !== "closed").slice(0, 3);
+  const people = getPeople().slice(0, 3);
   const qibitTitleById = new Map(qibits.map((qibit) => [qibit.id, qibit.title]));
 
   const nextStep = pendingDraft
@@ -88,6 +95,13 @@ export function TodayPage({ refreshToken }: Props) {
           <div className="stack-xs">
             <strong>Knowledge</strong>
             <span className="compact-text">Open docs-backed reference.</span>
+          </div>
+        </Link>
+        <Link to="/cockpit" className="card dense-card interactive-card command-card">
+          <LayoutDashboard size={16} />
+          <div className="stack-xs">
+            <strong>Cockpit</strong>
+            <span className="compact-text">Open launchers and private system surfaces.</span>
           </div>
         </Link>
       </section>
@@ -214,6 +228,118 @@ export function TodayPage({ refreshToken }: Props) {
               ))}
             </div>
           )}
+        </section>
+      </div>
+
+      <div className="two-col">
+        <section className="card dense-card">
+          <div className="card-header">
+            <span className="card-title">Due And Open Loops</span>
+            <Link to="/actions" className="inline-link">
+              Open queue <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="stack-sm">
+            {dueSoon.length > 0 ? (
+              dueSoon.map((action) => (
+                <Link key={action.id} to={`/actions/${action.id}`} className="record-link-card">
+                  <div className="compact-row spread">
+                    <strong>{action.title}</strong>
+                    <span className="badge badge-triaged">{action.dueHint}</span>
+                  </div>
+                  <div className="item-meta">
+                    <span className={`badge badge-${action.priority}`}>{action.priority}</span>
+                    {action.qibitId ? <span className="item-sub">{qibitTitleById.get(action.qibitId) ?? "Linked QiBit"}</span> : null}
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <span className="compact-text">No due hints are active right now.</span>
+            )}
+
+            {waitingOn.length > 0 ? (
+              waitingOn.map((qibit) => (
+                <Link key={qibit.id} to={`/qibits/${qibit.id}`} className="record-link-card">
+                  <div className="compact-row spread">
+                    <strong>{qibit.title}</strong>
+                    <span className="badge badge-waiting_on">waiting on</span>
+                  </div>
+                  <div className="compact-text">{qibit.summary}</div>
+                </Link>
+              ))
+            ) : null}
+          </div>
+        </section>
+
+        <section className="card dense-card">
+          <div className="card-header">
+            <span className="card-title">Scheduled And Slotted</span>
+            <Link to="/timeline" className="inline-link">
+              Open timeline <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="stack-sm">
+            {slotted.length > 0 ? (
+              slotted.map((qibit) => (
+                <Link key={qibit.id} to={`/qibits/${qibit.id}`} className="record-link-card">
+                  <div className="compact-row spread">
+                    <strong>{qibit.title}</strong>
+                    <span className="badge badge-triaged">{qibit.future_slot?.replace(/_/g, " ")}</span>
+                  </div>
+                  <div className="compact-text">{qibit.summary}</div>
+                  <div className="item-meta">
+                    <span className="badge badge-bucket">{qibit.space}</span>
+                    {qibit.thread_id ? <span className="item-sub">Thread linked</span> : null}
+                    {qibit.linkedPeople?.[0] ? <span className="item-sub">{qibit.linkedPeople[0].display_name}</span> : null}
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <span className="compact-text">No slotted QiBits yet. Use review to place work into today, tomorrow, this week, or next week.</span>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="two-col">
+        <section className="card dense-card">
+          <div className="card-header">
+            <span className="card-title">Threads And People</span>
+            <Link to="/threads" className="inline-link">
+              View threads <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="stack-sm">
+            {activeThreads.length > 0 ? (
+              activeThreads.map((thread) => (
+                <Link key={thread.id} to={`/threads/${thread.id}`} className="record-link-card">
+                  <div className="compact-row spread">
+                    <strong>{thread.title}</strong>
+                    <span className={`badge badge-${thread.status.replace(/_/g, "_")}`}>{thread.status.replace(/_/g, " ")}</span>
+                  </div>
+                  <div className="item-meta">
+                    <span className="badge badge-bucket">{thread.bucket_code}</span>
+                    <span className="item-sub">{formatRelative(thread.started_at)}</span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <span className="compact-text">No active threads yet.</span>
+            )}
+
+            {people.length > 0 ? (
+              <div className="item-meta">
+                {people.map((person) => (
+                  <Link key={person.id} to={`/people/${person.id}`} className="chip-link">
+                    {person.display_name}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </section>
       </div>
 

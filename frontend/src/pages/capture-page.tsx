@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { mockIngestion } from "../utils/mock-agent";
-import { savePendingDraft } from "../utils/storage";
+import { captureQiBitOnBackend } from "../api/client";
+import { buildDraft, mockAgentDraft } from "../utils/mock-agent";
+import { savePendingDraft, saveQiBit, upsertLocalInboxQiBit } from "../utils/storage";
 
 const SOURCE_TYPES = ["", "note", "care", "finance", "legal", "tech", "task", "other"];
 
@@ -25,18 +26,34 @@ export function CapturePage() {
     }
   }, [location.state]);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!rawText.trim()) return;
 
     setStatus("processing");
+    const cleaned = rawText.trim();
 
-    window.setTimeout(() => {
-      const draft = mockIngestion(rawText, sourceType);
+    try {
+      const savedQiBit = await captureQiBitOnBackend(cleaned);
+      saveQiBit(savedQiBit);
+      const draft = buildDraft(cleaned, savedQiBit.source || sourceType || "capture", savedQiBit.id, mockAgentDraft(cleaned), savedQiBit.createdAt);
       savePendingDraft(draft);
-      setStatus("idle");
       navigate("/review");
-    }, 250);
+    } catch (error) {
+      console.warn("Capture falling back to local draft mode.", error);
+      const draft = buildDraft(cleaned, sourceType || "capture");
+      upsertLocalInboxQiBit({
+        id: draft.id,
+        createdAt: draft.createdAt,
+        rawText: draft.rawText,
+        source: draft.source,
+        agentDraft: draft.agentDraft,
+      });
+      savePendingDraft(draft);
+      navigate("/review");
+    } finally {
+      setStatus("idle");
+    }
   }
 
   return (

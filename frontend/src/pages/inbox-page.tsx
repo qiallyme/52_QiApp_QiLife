@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/client";
 import { useApi } from "../hooks/use-api";
-import type { Bucket, Qibit, Thread } from "../types";
-import { StatusBadge, StateEmpty, StateLoading, StateError } from "./shared";
+import { buildDraft, mockAgentDraft } from "../utils/mock-agent";
+import { getQiBits, saveActions, savePendingDraft, saveQiBit } from "../utils/storage";
+import type { Bucket, QiBit, Thread } from "../types";
+import { StateEmpty, StateError, StateLoading } from "./shared";
 import { formatRelative } from "../utils/format";
 
 type Props = { refreshToken: number };
@@ -16,11 +19,12 @@ type TriageState = {
 };
 
 export function InboxPage({ refreshToken }: Props) {
-  const qibits  = useApi<Qibit[]>("/api/qibits", [], refreshToken);
-  const buckets  = useApi<Bucket[]>("/api/buckets", [], 0);
-  const threads  = useApi<Thread[]>("/api/threads", [], refreshToken);
+  const navigate = useNavigate();
+  const qibits = useApi<QiBit[]>("/api/qibits", [], refreshToken);
+  const buckets = useApi<Bucket[]>("/api/buckets", [], 0);
+  const threads = useApi<Thread[]>("/api/threads", [], refreshToken);
 
-  const [triageTarget, setTriageTarget] = useState<Qibit | null>(null);
+  const [triageTarget, setTriageTarget] = useState<QiBit | null>(null);
   const [triage, setTriage] = useState<TriageState>({
     qibitId: "",
     bucket_code: "10",
@@ -31,24 +35,39 @@ export function InboxPage({ refreshToken }: Props) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const inbox = qibits.data.filter((q) => q.status === "new");
+  const localInbox = getQiBits().filter((qibit) => qibit.status === "new");
+  const inboxMap = new Map<string, QiBit>();
+  [...qibits.data, ...localInbox].forEach((qibit) => {
+    if (qibit.status === "new") {
+      inboxMap.set(qibit.id, qibit);
+    }
+  });
+  const inbox = Array.from(inboxMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  function openTriage(q: Qibit) {
-    setTriageTarget(q);
+  function openTriage(qibit: QiBit) {
+    setTriageTarget(qibit);
     setTriage({
-      qibitId: q.id,
-      bucket_code: q.bucket_code === "00" ? "10" : q.bucket_code,
-      thread_id: q.thread_id ?? "",
-      action_required: false,
-      create_action_title: "",
+      qibitId: qibit.id,
+      bucket_code: qibit.bucket_code === "00" || !qibit.bucket_code ? "10" : qibit.bucket_code,
+      thread_id: qibit.thread_id ?? "",
+      action_required: qibit.action_required ?? false,
+      create_action_title: qibit.suggested_action ?? "",
     });
     setSaveError("");
+  }
+
+  function draftReview(qibit: QiBit) {
+    const agentDraft = qibit.agentDraft?.detectedSignals?.length ? qibit.agentDraft : mockAgentDraft(qibit.rawText);
+    const draft = buildDraft(qibit.rawText, qibit.source || "backend", qibit.id, agentDraft, qibit.createdAt);
+    savePendingDraft(draft);
+    navigate("/review");
   }
 
   async function submitTriage() {
     if (!triageTarget) return;
     setSaving(true);
     setSaveError("");
+
     try {
       await apiFetch(`/api/qibits/${triageTarget.id}/triage`, {
         method: "POST",
@@ -60,9 +79,41 @@ export function InboxPage({ refreshToken }: Props) {
         }),
       });
       setTriageTarget(null);
-      qibits.reload?.();
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Triage failed.");
+      qibits.reload();
+    } catch (error) {
+      const bucketName = buckets.data.find((bucket) => bucket.code === triage.bucket_code)?.name ?? triage.bucket_code;
+      const updatedQiBit: QiBit = {
+        ...triageTarget,
+        status: "triaged",
+        space: bucketName,
+        bucket_code: triage.bucket_code,
+        thread_id: triage.thread_id || null,
+        action_required: triage.action_required,
+        suggested_action: triage.create_action_title || null,
+        updatedAt: new Date().toISOString(),
+      };
+      saveQiBit(updatedQiBit);
+
+      if (triage.action_required && triage.create_action_title.trim()) {
+        saveActions([
+          {
+            id: crypto.randomUUID(),
+            qibitId: triageTarget.id,
+            createdAt: new Date().toISOString(),
+            title: triage.create_action_title.trim(),
+            status: "open",
+            priority: triageTarget.priority,
+            sourceText: triageTarget.rawText,
+            qibitTitle: triageTarget.title,
+            thread_id: triage.thread_id || null,
+            bucket_code: triage.bucket_code,
+          },
+        ]);
+      }
+
+      setTriageTarget(null);
+      qibits.reload();
+      console.warn("Inbox triage falling back to local storage.", error);
     } finally {
       setSaving(false);
     }
@@ -70,130 +121,128 @@ export function InboxPage({ refreshToken }: Props) {
 
   return (
     <div className="page-stack">
-      <section className="hero-panel compact-hero">
-        <div className="section-tag">Inbox</div>
-        <h2>Chaos catcher for unprocessed QiBits.</h2>
-        <p>Every item captured lands here first. Triage each one to a bucket and optional thread.</p>
+      <section className="desk-banner">
+        <div>
+          <div className="section-tag subdued">Inbox</div>
+          <h2>New QiBits waiting for interpretation.</h2>
+          <p>Raw captures land here first when backend intake is connected. Draft for review or triage them into a bucket and thread.</p>
+          <p className="compact-text">Offline captures also stay visible here through local fallback mode.</p>
+        </div>
       </section>
 
-      <div className="card">
+      <section className="card dense-card stack-md">
         <div className="card-header">
-          <span className="card-title">Unprocessed</span>
+          <span className="card-title">Unprocessed QiBits</span>
           <span className="card-count">{inbox.length}</span>
         </div>
 
-        {qibits.loading && <StateLoading />}
-        {qibits.error && <StateError message={qibits.error} />}
-        {!qibits.loading && inbox.length === 0 && (
-          <StateEmpty icon="✓" text="Inbox is clear. All QiBits triaged." />
-        )}
+        {qibits.loading ? <StateLoading /> : null}
+        {qibits.error ? <StateError message={qibits.error} /> : null}
+        {!qibits.loading && inbox.length === 0 ? (
+          <StateEmpty text="Inbox is clear. New backend captures will appear here." icon="✓" />
+        ) : null}
 
-        {inbox.map((q) => (
-          <div key={q.id} className="item-row">
-            <div className="item-main">
-              <div className="item-title">{q.title}</div>
-              <div className="item-sub" style={{ margin: "4px 0 6px" }}>
-                {q.raw_capture.length > 120 ? q.raw_capture.slice(0, 120) + "…" : q.raw_capture}
+        <div className="stack-sm">
+          {inbox.map((qibit) => (
+            <article key={qibit.id} className="record-link-card">
+              <div className="compact-row spread">
+                <div className="stack-xs">
+                  <strong>{qibit.title || "Untitled capture"}</strong>
+                  <span className="compact-text">{qibit.rawText}</span>
+                </div>
+                <span className="badge badge-bucket">{qibit.space || "Inbox"}</span>
               </div>
+
               <div className="item-meta">
-                <StatusBadge status={q.status} />
-                <span className="badge badge-bucket">B{q.bucket_code}</span>
-                <span className="item-sub">{formatRelative(q.captured_at)}</span>
-                {q.tags_json?.map((t) => (
-                  <span key={t} className="badge badge-type">{t}</span>
-                ))}
+                <span className="badge badge-type">{qibit.type}</span>
+                <span className={`badge badge-${qibit.priority}`}>{qibit.priority}</span>
+                <span className="item-sub">{formatRelative(qibit.createdAt)}</span>
               </div>
-            </div>
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ flexShrink: 0 }}
-              onClick={() => openTriage(q)}
-            >
-              Triage →
-            </button>
-          </div>
-        ))}
-      </div>
 
-      {/* Triage Modal */}
-      {triageTarget && (
+              <div className="item-meta">
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => draftReview(qibit)}>
+                  Draft Review
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => openTriage(qibit)}>
+                  Quick Triage
+                </button>
+                <Link to={`/qibits/${qibit.id}`} className="inline-link">
+                  Open record
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {triageTarget ? (
         <div className="modal-backdrop" onClick={() => setTriageTarget(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Triage QiBit</div>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-title">Quick Triage</div>
 
-            <div style={{ marginBottom: 16, padding: "10px 14px", background: "var(--paper-200)", borderRadius: "var(--r-md)", fontSize: 13, color: "var(--ink-600, var(--ink-700))" }}>
-              <em>"{triageTarget.raw_capture}"</em>
-            </div>
+            <div className="raw-panel">{triageTarget.rawText}</div>
 
-            <div className="form-grid">
-              <div className="form-field">
+            <div className="stack-md" style={{ marginTop: 12 }}>
+              <div>
                 <label className="form-label">Bucket</label>
-                <select
-                  className="select-input"
-                  value={triage.bucket_code}
-                  onChange={(e) => setTriage({ ...triage, bucket_code: e.target.value })}
-                >
+                <select className="select-input" value={triage.bucket_code} onChange={(event) => setTriage({ ...triage, bucket_code: event.target.value })}>
                   {buckets.data
-                    .filter((b) => !b.is_system && b.code !== "00")
-                    .map((b) => (
-                      <option key={b.code} value={b.code}>
-                        {b.code} · {b.name}
+                    .filter((bucket) => !bucket.is_system && bucket.code !== "00")
+                    .map((bucket) => (
+                      <option key={bucket.code} value={bucket.code}>
+                        {bucket.code} · {bucket.name}
                       </option>
                     ))}
                 </select>
               </div>
 
-              <div className="form-field">
-                <label className="form-label">Thread (optional)</label>
-                <select
-                  className="select-input"
-                  value={triage.thread_id}
-                  onChange={(e) => setTriage({ ...triage, thread_id: e.target.value })}
-                >
-                  <option value="">— No thread —</option>
-                  {threads.data.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.title}
+              <div>
+                <label className="form-label">Thread</label>
+                <select className="select-input" value={triage.thread_id} onChange={(event) => setTriage({ ...triage, thread_id: event.target.value })}>
+                  <option value="">No thread</option>
+                  {threads.data.map((thread) => (
+                    <option key={thread.id} value={thread.id}>
+                      {thread.title}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="form-field">
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={triage.action_required}
-                    onChange={(e) => setTriage({ ...triage, action_required: e.target.checked })}
-                  />
-                  <span className="form-label" style={{ margin: 0 }}>Action required?</span>
-                </label>
-              </div>
+              <label className="compact-row">
+                <input
+                  type="checkbox"
+                  checked={triage.action_required}
+                  onChange={(event) => setTriage({ ...triage, action_required: event.target.checked })}
+                />
+                <span className="compact-text">Create action while triaging</span>
+              </label>
 
-              {triage.action_required && (
-                <div className="form-field">
-                  <label className="form-label">Create Action (title)</label>
+              {triage.action_required ? (
+                <div>
+                  <label className="form-label">Action Title</label>
                   <input
                     className="text-input"
-                    placeholder="e.g. Follow up with Zai about the $40"
                     value={triage.create_action_title}
-                    onChange={(e) => setTriage({ ...triage, create_action_title: e.target.value })}
+                    onChange={(event) => setTriage({ ...triage, create_action_title: event.target.value })}
+                    placeholder="Action title"
                   />
                 </div>
-              )}
+              ) : null}
             </div>
 
-            {saveError && <div className="error-banner" style={{ marginTop: 12 }}>{saveError}</div>}
+            {saveError ? <div className="error-banner" style={{ marginTop: 12 }}>{saveError}</div> : null}
 
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setTriageTarget(null)}>Cancel</button>
-              <button className="btn btn-primary" disabled={saving} onClick={submitTriage}>
-                {saving ? "Saving…" : "Confirm Triage"}
+              <button type="button" className="btn btn-ghost" onClick={() => setTriageTarget(null)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" disabled={saving} onClick={submitTriage}>
+                {saving ? "Saving..." : "Confirm Triage"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import {
   AgentDraft,
   Bucket,
   Draft,
+  Person,
   Priority,
   QiBit,
   QiBitType,
@@ -17,6 +18,7 @@ export const QIBITS_KEY = "qilife_qibits";
 export const TIMELINE_KEY = "qilife_timeline";
 export const ACTIONS_KEY = "qilife_actions";
 export const THREADS_KEY = "qilife_threads";
+export const PEOPLE_KEY = "qilife_people";
 
 const ISO_NOW = () => new Date().toISOString();
 
@@ -136,6 +138,61 @@ function normalizeAction(raw: Record<string, unknown>, rawTextFallback = "", qib
     tags_json: Array.isArray(raw.tags_json) ? uniqueStrings(raw.tags_json) : undefined,
     source_qibit_id: typeof raw.source_qibit_id === "string" ? raw.source_qibit_id : qibitIdFallback,
   };
+}
+
+function normalizeThread(raw: Record<string, unknown>): Thread {
+  return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : `thread-${Math.random().toString(36).slice(2, 10)}`,
+    title: typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : "Untitled thread",
+    description: typeof raw.description === "string" ? raw.description : "",
+    bucket_code:
+      typeof raw.bucket_code === "string" && raw.bucket_code
+        ? raw.bucket_code
+        : typeof raw.space === "string" && raw.space
+          ? raw.space
+          : "inbox",
+    status: typeof raw.status === "string" && raw.status ? raw.status : "open",
+    priority: typeof raw.priority === "string" && raw.priority ? raw.priority : "normal",
+    next_action: typeof raw.next_action === "string" ? raw.next_action : null,
+    due_date: typeof raw.due_date === "string" ? raw.due_date : null,
+    started_at: coerceIso(raw.started_at ?? raw.created_at),
+    closed_at: typeof raw.closed_at === "string" ? raw.closed_at : null,
+    tags_json: Array.isArray(raw.tags_json) ? uniqueStrings(raw.tags_json) : [],
+    created_at: coerceIso(raw.created_at ?? raw.started_at),
+    updated_at: coerceIso(raw.updated_at ?? raw.created_at ?? raw.started_at),
+  };
+}
+
+function normalizePerson(raw: Record<string, unknown>): Person {
+  const displayName =
+    typeof raw.display_name === "string" && raw.display_name.trim()
+      ? raw.display_name.trim()
+      : typeof raw.legal_name === "string" && raw.legal_name.trim()
+        ? raw.legal_name.trim()
+        : "Unnamed person";
+
+  return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : `person-${Math.random().toString(36).slice(2, 10)}`,
+    display_name: displayName,
+    legal_name:
+      typeof raw.legal_name === "string" && raw.legal_name.trim()
+        ? raw.legal_name.trim()
+        : displayName,
+    relationship: typeof raw.relationship === "string" ? raw.relationship : "",
+    type: typeof raw.type === "string" && raw.type ? raw.type : "person",
+    email: typeof raw.email === "string" ? raw.email : null,
+    phone: typeof raw.phone === "string" ? raw.phone : null,
+    address: typeof raw.address === "string" ? raw.address : null,
+    notes: typeof raw.notes === "string" ? raw.notes : null,
+    tags_json: Array.isArray(raw.tags_json) ? uniqueStrings(raw.tags_json) : [],
+    created_at: coerceIso(raw.created_at),
+    updated_at: coerceIso(raw.updated_at ?? raw.created_at),
+  };
+}
+
+function normalizeLinkedPeople(raw: unknown): Person[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((person) => normalizePerson((person ?? {}) as Record<string, unknown>));
 }
 
 function normalizeAgentDraft(raw: Record<string, unknown>, rawText: string): AgentDraft {
@@ -271,6 +328,26 @@ function normalizeQiBit(raw: Record<string, unknown>): QiBit {
         : typeof payload.source === "string"
           ? (payload.source as string)
           : "local",
+    bucket_code: typeof raw.bucket_code === "string" ? raw.bucket_code : undefined,
+    thread_id: typeof raw.thread_id === "string" ? raw.thread_id : null,
+    action_required: typeof raw.action_required === "boolean" ? raw.action_required : undefined,
+    suggested_action: typeof raw.suggested_action === "string" ? raw.suggested_action : null,
+    future_slot: typeof raw.future_slot === "string" ? raw.future_slot : null,
+    peopleIds: uniqueStrings(
+      Array.isArray(raw.peopleIds)
+        ? raw.peopleIds
+        : Array.isArray(payload.peopleIds)
+          ? ((payload.peopleIds ?? []) as string[])
+          : [],
+    ),
+    linkedPeople: Array.isArray(raw.linkedPeople)
+      ? normalizeLinkedPeople(raw.linkedPeople)
+      : Array.isArray(payload.linkedPeople)
+        ? normalizeLinkedPeople(payload.linkedPeople)
+        : undefined,
+    linkedActions: Array.isArray(raw.linkedActions)
+      ? raw.linkedActions.map((action) => normalizeAction(action as Record<string, unknown>, rawText, typeof raw.id === "string" ? raw.id : null))
+      : undefined,
   };
 }
 
@@ -293,6 +370,15 @@ function buildTimelinePayload(qibit: QiBit, actions: Action[]): TimelinePayload 
     space: qibit.space,
     createdAt: qibit.createdAt,
     updatedAt: qibit.updatedAt,
+    thread_id: qibit.thread_id,
+    future_slot: qibit.future_slot,
+    peopleIds: qibit.peopleIds,
+    linkedPeople: qibit.linkedPeople?.map((person) => ({
+      id: person.id,
+      display_name: person.display_name,
+      relationship: person.relationship,
+      type: person.type,
+    })),
     linkedActionIds: linkedActions.map((action) => action.id),
     linkedActions,
     insight: qibit.insight,
@@ -347,10 +433,10 @@ function upsertById<T extends { id: string }>(items: T[], next: T): T[] {
   return [next, ...filtered];
 }
 
-function sortNewest<T extends { createdAt?: string; timestamp?: string }>(items: T[]): T[] {
+function sortNewest<T extends { createdAt?: string; created_at?: string; updated_at?: string; started_at?: string; timestamp?: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => {
-    const aTime = new Date(a.createdAt ?? a.timestamp ?? 0).getTime();
-    const bTime = new Date(b.createdAt ?? b.timestamp ?? 0).getTime();
+    const aTime = new Date(a.createdAt ?? a.created_at ?? a.updated_at ?? a.started_at ?? a.timestamp ?? 0).getTime();
+    const bTime = new Date(b.createdAt ?? b.created_at ?? b.updated_at ?? b.started_at ?? b.timestamp ?? 0).getTime();
     return bTime - aTime;
   });
 }
@@ -392,6 +478,34 @@ export function getQiBitById(id: string): QiBit | null {
 export function saveQiBit(qibit: QiBit) {
   const existing = getQiBits();
   writeJson(QIBITS_KEY, sortNewest(upsertById(existing, normalizeQiBit(qibit as unknown as Record<string, unknown>))));
+}
+
+export function upsertLocalInboxQiBit(input: {
+  id: string;
+  createdAt: string;
+  rawText: string;
+  source: string;
+  agentDraft: AgentDraft;
+}) {
+  const qibit = normalizeQiBit({
+    id: input.id,
+    createdAt: input.createdAt,
+    updatedAt: input.createdAt,
+    type: input.agentDraft.suggestedType,
+    title: input.agentDraft.suggestedTitle,
+    summary: input.agentDraft.suggestedSummary,
+    rawText: input.rawText,
+    tags: input.agentDraft.suggestedTags,
+    priority: input.agentDraft.suggestedPriority,
+    status: "new",
+    space: "Inbox",
+    source: input.source,
+    bucket_code: "00",
+    agentDraft: input.agentDraft,
+    insight: input.agentDraft.insight,
+  } as Record<string, unknown>);
+
+  saveQiBit(qibit);
 }
 
 export function replaceQiBits(qibits: QiBit[]) {
@@ -456,6 +570,14 @@ export function getActionById(id: string): Action | null {
 
 export function getActionsForQiBit(qibitId: string): Action[] {
   return getActions().filter((action) => action.qibitId === qibitId || action.source_qibit_id === qibitId);
+}
+
+export function getQiBitsForPerson(personId: string): QiBit[] {
+  return getQiBits().filter(
+    (qibit) =>
+      qibit.peopleIds?.includes(personId) ||
+      qibit.linkedPeople?.some((person) => person.id === personId),
+  );
 }
 
 export function saveActions(actions: Action[]) {
@@ -534,11 +656,37 @@ export function persistReviewResult(qibit: QiBit, actions: Action[], timelineIte
 }
 
 export function getThreads(): Thread[] {
-  return readJson<Thread[]>(THREADS_KEY, []);
+  return sortNewest(readJson<Record<string, unknown>[]>(THREADS_KEY, []).map(normalizeThread));
 }
 
 export function saveThread(thread: Thread) {
-  writeJson(THREADS_KEY, [thread, ...getThreads()]);
+  const merged = upsertById(getThreads(), normalizeThread(thread as unknown as Record<string, unknown>));
+  writeJson(THREADS_KEY, sortNewest(merged));
+}
+
+export function replaceThreads(threads: Thread[]) {
+  writeJson(THREADS_KEY, sortNewest(threads.map((thread) => normalizeThread(thread as unknown as Record<string, unknown>))));
+}
+
+export function getThreadById(id: string): Thread | null {
+  return getThreads().find((thread) => thread.id === id) ?? null;
+}
+
+export function getPeople(): Person[] {
+  return sortNewest(readJson<Record<string, unknown>[]>(PEOPLE_KEY, []).map(normalizePerson));
+}
+
+export function savePerson(person: Person) {
+  const merged = upsertById(getPeople(), normalizePerson(person as unknown as Record<string, unknown>));
+  writeJson(PEOPLE_KEY, sortNewest(merged));
+}
+
+export function replacePeople(people: Person[]) {
+  writeJson(PEOPLE_KEY, sortNewest(people.map((person) => normalizePerson(person as unknown as Record<string, unknown>))));
+}
+
+export function getPersonById(id: string): Person | null {
+  return getPeople().find((person) => person.id === id) ?? null;
 }
 
 export function getBuckets(): Bucket[] {

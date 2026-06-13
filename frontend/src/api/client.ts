@@ -1,4 +1,4 @@
-import type { Action, AgentDraft, KnowledgeCategory, KnowledgeDoc, QiBit, ReviewSaveResponse, TimelineRow } from "../types";
+import type { Action, AgentDraft, KnowledgeCategory, KnowledgeDoc, Person, QiBit, ReviewSaveResponse, Thread, TimelineRow } from "../types";
 
 const rawApiBase = import.meta.env.VITE_API_BASE_URL?.trim() ?? "";
 
@@ -84,6 +84,15 @@ export async function listQiBitsFromBackend(): Promise<QiBit[]> {
   return apiFetch<QiBit[]>("/api/qibits");
 }
 
+export async function captureQiBitOnBackend(rawText: string): Promise<QiBit> {
+  return apiFetch<QiBit>("/api/qibits/capture", {
+    method: "POST",
+    body: JSON.stringify({
+      raw_capture: rawText,
+    }),
+  });
+}
+
 export async function getQiBitFromBackend(id: string): Promise<QiBit> {
   return apiFetch<QiBit>(`/api/qibits/${id}`);
 }
@@ -98,6 +107,52 @@ export async function getActionFromBackend(id: string): Promise<Action> {
 
 export async function listTimelineFromBackend(): Promise<TimelineRow[]> {
   return apiFetch<TimelineRow[]>("/api/timeline");
+}
+
+export async function listThreadsFromBackend(): Promise<Thread[]> {
+  return apiFetch<Thread[]>("/api/threads");
+}
+
+export async function getThreadFromBackend(id: string): Promise<Thread> {
+  return apiFetch<Thread>(`/api/threads/${id}`);
+}
+
+export async function createThreadOnBackend(payload: {
+  title: string;
+  description: string;
+  bucket_code: string;
+  priority: string;
+  next_action?: string | null;
+  due_date?: string | null;
+}): Promise<Thread> {
+  return apiFetch<Thread>("/api/threads", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listPeopleFromBackend(): Promise<Person[]> {
+  return apiFetch<Person[]>("/api/people");
+}
+
+export async function getPersonFromBackend(id: string): Promise<Person> {
+  return apiFetch<Person>(`/api/people/${id}`);
+}
+
+export async function createPersonOnBackend(payload: {
+  display_name: string;
+  legal_name: string;
+  type: string;
+  relationship: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}): Promise<Person> {
+  return apiFetch<Person>("/api/people", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function listKnowledgeDocs(): Promise<KnowledgeCategory[]> {

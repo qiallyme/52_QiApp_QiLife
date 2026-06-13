@@ -6,6 +6,7 @@ import {
   CheckSquare,
   History,
   Inbox,
+  LayoutDashboard,
   Menu,
   PlusCircle,
   Sun,
@@ -14,6 +15,7 @@ import {
 
 const navItems = [
   { label: "Today", href: "/", icon: <Sun size={18} /> },
+  { label: "Cockpit", href: "/cockpit", icon: <LayoutDashboard size={18} /> },
   { label: "Knowledge", href: "/knowledge", icon: <BookOpen size={18} /> },
   { label: "Capture", href: "/capture", icon: <PlusCircle size={18} /> },
   { label: "Review", href: "/review", icon: <CheckSquare size={18} /> },
@@ -28,7 +30,7 @@ const mobileNavItems = [
   { label: "Today", href: "/", icon: <Sun size={20} /> },
   { label: "Capture", href: "/capture", icon: <PlusCircle size={20} /> },
   { label: "Review", href: "/review", icon: <CheckSquare size={20} /> },
-  { label: "Actions", href: "/actions", icon: <CheckCircle size={20} /> },
+  { label: "Cockpit", href: "/cockpit", icon: <LayoutDashboard size={20} /> },
   { label: "More", href: "/more", icon: <Menu size={20} /> },
 ];
 

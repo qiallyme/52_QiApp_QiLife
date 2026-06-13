@@ -156,9 +156,15 @@ def serialize_action(action: Action, bucket_names: dict[str, str], qibit_title: 
     }
 
 
-def serialize_qibit(qibit: Qibit, bucket_names: dict[str, str], linked_actions: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def serialize_qibit(
+    qibit: Qibit,
+    bucket_names: dict[str, str],
+    linked_actions: list[dict[str, Any]] | None = None,
+    linked_people: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     metadata = qibit.metadata_json or {}
     actions = linked_actions or []
+    people = linked_people or []
     agent_draft = extract_agent_draft(metadata, qibit)
 
     return {
@@ -176,12 +182,24 @@ def serialize_qibit(qibit: Qibit, bucket_names: dict[str, str], linked_actions: 
         "agentDraft": agent_draft,
         "insight": metadata.get("insight") or agent_draft.get("insight") or "",
         "source": metadata.get("source", "backend"),
+        "bucket_code": qibit.bucket_code,
+        "thread_id": qibit.thread_id,
+        "action_required": qibit.action_required,
+        "suggested_action": qibit.suggested_action,
+        "future_slot": qibit.future_slot,
+        "peopleIds": metadata.get("people_ids", []),
+        "linkedPeople": people,
         "linkedActions": actions,
     }
 
 
-def build_qibit_timeline_payload(qibit: Qibit, linked_actions: list[dict[str, Any]], bucket_names: dict[str, str]) -> dict[str, Any]:
-    serialized_qibit = serialize_qibit(qibit, bucket_names, linked_actions)
+def build_qibit_timeline_payload(
+    qibit: Qibit,
+    linked_actions: list[dict[str, Any]],
+    bucket_names: dict[str, str],
+    linked_people: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    serialized_qibit = serialize_qibit(qibit, bucket_names, linked_actions, linked_people)
     return {
         "qibitId": serialized_qibit["id"],
         "rawText": serialized_qibit["rawText"],
@@ -192,6 +210,10 @@ def build_qibit_timeline_payload(qibit: Qibit, linked_actions: list[dict[str, An
         "space": serialized_qibit["space"],
         "createdAt": serialized_qibit["createdAt"],
         "updatedAt": serialized_qibit["updatedAt"],
+        "thread_id": serialized_qibit["thread_id"],
+        "future_slot": serialized_qibit["future_slot"],
+        "peopleIds": serialized_qibit["peopleIds"],
+        "linkedPeople": serialized_qibit["linkedPeople"],
         "linkedActionIds": [action["id"] for action in linked_actions],
         "linkedActions": [
             {

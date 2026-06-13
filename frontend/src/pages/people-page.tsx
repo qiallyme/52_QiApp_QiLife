@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { apiFetch } from "../api/client";
-import { useApi } from "../hooks/use-api";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { createPersonOnBackend } from "../api/client";
 import type { Person } from "../types";
-import { StateEmpty, StateLoading, StateError } from "./shared";
+import { getPeople, savePerson } from "../utils/storage";
+import { StateEmpty } from "./shared";
 
-type Props = { refreshToken: number };
+type Props = {
+  refreshToken: number;
+};
 
 export function PeoplePage({ refreshToken }: Props) {
-  const people = useApi<Person[]>("/api/people", [], refreshToken);
+  const [people, setPeople] = useState<Person[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     display_name: "",
@@ -16,17 +19,30 @@ export function PeoplePage({ refreshToken }: Props) {
     relationship: "",
     email: "",
     phone: "",
+    address: "",
     notes: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [search, setSearch] = useState("");
 
-  const visible = people.data.filter(
-    (p) =>
-      !search ||
-      p.display_name.toLowerCase().includes(search.toLowerCase()) ||
-      p.relationship.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    setPeople(getPeople());
+  }, [refreshToken]);
+
+  const visible = useMemo(
+    () =>
+      people.filter((person) => {
+        if (!search.trim()) return true;
+        const query = search.trim().toLowerCase();
+        return (
+          person.display_name.toLowerCase().includes(query) ||
+          person.legal_name.toLowerCase().includes(query) ||
+          person.relationship.toLowerCase().includes(query) ||
+          person.type.toLowerCase().includes(query)
+        );
+      }),
+    [people, search],
   );
 
   async function createPerson() {
@@ -34,145 +50,169 @@ export function PeoplePage({ refreshToken }: Props) {
     setSaving(true);
     setSaveError("");
     try {
-      await apiFetch<Person>("/api/people", {
-        method: "POST",
-        body: JSON.stringify({
+      let nextPerson: Person;
+      try {
+        nextPerson = await createPersonOnBackend({
           ...form,
-          legal_name: form.legal_name || form.display_name,
-          email: form.email || null,
-          phone: form.phone || null,
-          notes: form.notes || null,
-        }),
-      });
+          display_name: form.display_name.trim(),
+          legal_name: form.legal_name.trim() || form.display_name.trim(),
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          address: form.address.trim() || null,
+          notes: form.notes.trim() || null,
+        });
+      } catch {
+        nextPerson = {
+          id: crypto.randomUUID(),
+          display_name: form.display_name.trim(),
+          legal_name: form.legal_name.trim() || form.display_name.trim(),
+          relationship: form.relationship.trim(),
+          type: form.type,
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          address: form.address.trim() || null,
+          notes: form.notes.trim() || null,
+          tags_json: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+
+      savePerson(nextPerson);
+      setPeople(getPeople());
       setShowCreate(false);
-      setForm({ display_name: "", legal_name: "", type: "person", relationship: "", email: "", phone: "", notes: "" });
-      people.reload?.();
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Create failed.");
+      setForm({ display_name: "", legal_name: "", type: "person", relationship: "", email: "", phone: "", address: "", notes: "" });
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Create failed.");
     } finally {
       setSaving(false);
     }
   }
 
   function initials(name: string) {
-    return name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
   }
 
   return (
     <div className="page-stack">
       <section className="hero-panel compact-hero">
-        <div className="section-tag">People</div>
-        <h2>Who is involved and what is the history?</h2>
-        <p>Everyone connected to life operations — linked to QiBits, threads, obligations.</p>
+        <div className="stack-sm">
+          <div className="section-tag">People</div>
+          <h2>Who is involved and what links back to them?</h2>
+          <p>People records stay lightweight, but they now open into actual detail views and can persist in backend or fallback mode.</p>
+        </div>
+        <button className="btn btn-accent btn-sm" onClick={() => setShowCreate(true)}>
+          + Add Person
+        </button>
       </section>
 
-      <div className="card">
+      <div className="card dense-card stack-md">
         <div className="card-header">
           <div className="search-wrap" style={{ flex: 1 }}>
-            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-            </svg>
             <input
               className="search-input"
-              placeholder="Search people…"
+              placeholder="Search people"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-          <button className="btn btn-accent btn-sm" onClick={() => setShowCreate(true)}>
-            + Add Person
-          </button>
         </div>
 
-        {people.loading && <StateLoading />}
-        {people.error && <StateError message={people.error} />}
-        {!people.loading && visible.length === 0 && (
-          <StateEmpty icon="◈" text="No people yet. Add someone." />
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-          {visible.map((p) => (
-            <div key={p.id} className="person-card">
-              <div className="person-avatar">{initials(p.display_name)}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--ink-700)" }}>{p.display_name}</div>
-                {p.legal_name !== p.display_name && (
-                  <div style={{ fontSize: 12, color: "var(--ink-400)" }}>{p.legal_name}</div>
-                )}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                  <span className="badge badge-type">{p.type}</span>
-                  {p.relationship && (
-                    <span className="badge badge-bucket">{p.relationship}</span>
-                  )}
-                  {p.email && <span className="item-sub">{p.email}</span>}
-                  {p.phone && <span className="item-sub">{p.phone}</span>}
-                </div>
-                {p.notes && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-500)", fontStyle: "italic" }}>
-                    {p.notes}
+        {visible.length === 0 ? (
+          <StateEmpty icon="◈" text="No people yet. Add the people involved in current work." />
+        ) : (
+          <div className="stack-sm">
+            {visible.map((person) => (
+              <Link key={person.id} to={`/people/${person.id}`} className="person-card record-row-link">
+                <div className="person-avatar">{initials(person.display_name)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="compact-row spread">
+                    <strong>{person.display_name}</strong>
+                    <span className="badge badge-type">{person.type}</span>
                   </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+                  {person.legal_name !== person.display_name ? (
+                    <div className="compact-text">{person.legal_name}</div>
+                  ) : null}
+                  <div className="item-meta" style={{ marginTop: 6 }}>
+                    {person.relationship ? <span className="badge badge-bucket">{person.relationship}</span> : null}
+                    {person.email ? <span className="item-sub">{person.email}</span> : null}
+                    {person.phone ? <span className="item-sub">{person.phone}</span> : null}
+                  </div>
+                  {person.notes ? <div className="compact-text" style={{ marginTop: 6 }}>{person.notes}</div> : null}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Create Modal */}
-      {showCreate && (
+      {showCreate ? (
         <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-title">Add Person</div>
             <div className="form-grid">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div className="form-field">
                   <label className="form-label">Display Name *</label>
-                  <input className="text-input" placeholder="Zai" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} autoFocus />
+                  <input className="text-input" value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} autoFocus />
                 </div>
                 <div className="form-field">
                   <label className="form-label">Legal Name</label>
-                  <input className="text-input" placeholder="Full legal name" value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} />
+                  <input className="text-input" value={form.legal_name} onChange={(event) => setForm({ ...form, legal_name: event.target.value })} />
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div className="form-field">
                   <label className="form-label">Type</label>
-                  <select className="select-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                    {["person", "org", "agency", "court", "vendor", "client"].map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                  <select className="select-input" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>
+                    {["person", "org", "agency", "court", "vendor", "client"].map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div className="form-field">
                   <label className="form-label">Relationship</label>
-                  <input className="text-input" placeholder="friend, vendor…" value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} />
+                  <input className="text-input" value={form.relationship} onChange={(event) => setForm({ ...form, relationship: event.target.value })} />
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div className="form-field">
                   <label className="form-label">Email</label>
-                  <input className="text-input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <input className="text-input" type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
                 </div>
                 <div className="form-field">
                   <label className="form-label">Phone</label>
-                  <input className="text-input" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <input className="text-input" type="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
                 </div>
               </div>
               <div className="form-field">
+                <label className="form-label">Address</label>
+                <input className="text-input" value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
+              </div>
+              <div className="form-field">
                 <label className="form-label">Notes</label>
-                <textarea className="textarea-input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <textarea className="textarea-input" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
               </div>
             </div>
-            {saveError && <div className="error-banner" style={{ marginTop: 12 }}>{saveError}</div>}
+            {saveError ? <div className="error-banner" style={{ marginTop: 12 }}>{saveError}</div> : null}
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>
+                Cancel
+              </button>
               <button className="btn btn-primary" disabled={saving || !form.display_name.trim()} onClick={createPerson}>
-                {saving ? "Saving…" : "Add Person"}
+                {saving ? "Saving..." : "Add Person"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

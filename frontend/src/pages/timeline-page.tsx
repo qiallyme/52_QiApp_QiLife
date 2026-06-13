@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUpDown, History, Search, ZoomIn } from "lucide-react";
 import type { TimelineRow } from "../types";
 import { formatDate, formatRelative } from "../utils/format";
-import { getTimelineItems } from "../utils/storage";
+import { getPeople, getThreads, getTimelineItems } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
 type Props = { refreshToken: number };
@@ -23,6 +23,9 @@ export function TimelinePage({ refreshToken }: Props) {
   const [zoom, setZoom] = useState<ZoomMode>((searchParams.get("zoom") as ZoomMode) || "normal");
   const [spaceFilter, setSpaceFilter] = useState(searchParams.get("space") ?? "");
   const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
+  const [threadFilter, setThreadFilter] = useState(searchParams.get("thread") ?? "");
+  const [personFilter, setPersonFilter] = useState(searchParams.get("person") ?? "");
+  const [slotFilter, setSlotFilter] = useState(searchParams.get("slot") ?? "");
   const deferred = useDeferredValue(search);
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export function TimelinePage({ refreshToken }: Props) {
     setZoom((searchParams.get("zoom") as ZoomMode) || "normal");
     setSpaceFilter(searchParams.get("space") ?? "");
     setTagFilter(searchParams.get("tag") ?? "");
+    setThreadFilter(searchParams.get("thread") ?? "");
+    setPersonFilter(searchParams.get("person") ?? "");
+    setSlotFilter(searchParams.get("slot") ?? "");
   }, [searchParams]);
 
   useEffect(() => {
@@ -48,22 +54,37 @@ export function TimelinePage({ refreshToken }: Props) {
     if (zoom !== "normal") next.set("zoom", zoom);
     if (spaceFilter) next.set("space", spaceFilter);
     if (tagFilter) next.set("tag", tagFilter);
+    if (threadFilter) next.set("thread", threadFilter);
+    if (personFilter) next.set("person", personFilter);
+    if (slotFilter) next.set("slot", slotFilter);
 
     const nextString = next.toString();
     const currentString = searchParams.toString();
     if (nextString !== currentString) {
       setSearchParams(next, { replace: true });
     }
-  }, [search, searchParams, setSearchParams, sortOrder, spaceFilter, tagFilter, typeFilter, zoom]);
+  }, [personFilter, search, searchParams, setSearchParams, slotFilter, sortOrder, spaceFilter, tagFilter, threadFilter, typeFilter, zoom]);
 
   const needle = deferred.trim().toLowerCase();
+  const threads = getThreads();
+  const people = getPeople();
+  const spaces = useMemo(
+    () => Array.from(new Set(items.map((item) => item.payload.space ?? item.bucket_code).filter(Boolean))).sort(),
+    [items],
+  );
   const visible = useMemo(() => {
     const filtered = items.filter((item) => {
       const typeMatch = typeFilter === "all" || item.payload.type === typeFilter;
       const spaceMatch = !spaceFilter || item.payload.space === spaceFilter || item.bucket_code === spaceFilter;
       const tagMatch = !tagFilter || (item.payload.tags ?? []).includes(tagFilter);
+      const threadMatch = !threadFilter || item.payload.thread_id === threadFilter;
+      const personMatch =
+        !personFilter ||
+        item.payload.peopleIds?.includes(personFilter) ||
+        item.payload.linkedPeople?.some((person) => person.id === personFilter);
+      const slotMatch = !slotFilter || item.payload.future_slot === slotFilter;
 
-      if (!typeMatch || !spaceMatch || !tagMatch) return false;
+      if (!typeMatch || !spaceMatch || !tagMatch || !threadMatch || !personMatch || !slotMatch) return false;
 
       if (!needle) return true;
 
@@ -88,7 +109,7 @@ export function TimelinePage({ refreshToken }: Props) {
       const bTime = new Date(b.timestamp).getTime();
       return sortOrder === "newest" ? bTime - aTime : aTime - bTime;
     });
-  }, [items, needle, sortOrder, spaceFilter, tagFilter, typeFilter]);
+  }, [items, needle, personFilter, slotFilter, sortOrder, spaceFilter, tagFilter, threadFilter, typeFilter]);
 
   const groups = useMemo(() => {
     const grouped = new Map<string, TimelineRow[]>();
@@ -99,7 +120,7 @@ export function TimelinePage({ refreshToken }: Props) {
     return Array.from(grouped.entries()).map(([label, rows]) => ({ label, rows }));
   }, [visible]);
 
-  const hasScopedFilter = spaceFilter || tagFilter;
+  const hasScopedFilter = spaceFilter || tagFilter || threadFilter || personFilter || slotFilter;
 
   function openQiBit(item: TimelineRow) {
     navigate(`/qibits/${item.payload.qibitId ?? item.id}`);
@@ -148,6 +169,35 @@ export function TimelinePage({ refreshToken }: Props) {
         </div>
 
         <div className="filter-bar timeline-toolbar">
+          <div className="three-col" style={{ width: "100%" }}>
+            <select className="filter-select" value={spaceFilter} onChange={(event) => setSpaceFilter(event.target.value)}>
+              <option value="">All spaces</option>
+              {spaces.map((space) => (
+                <option key={space} value={space}>
+                  {space}
+                </option>
+              ))}
+            </select>
+            <select className="filter-select" value={threadFilter} onChange={(event) => setThreadFilter(event.target.value)}>
+              <option value="">All threads</option>
+              {threads.map((thread) => (
+                <option key={thread.id} value={thread.id}>
+                  {thread.title}
+                </option>
+              ))}
+            </select>
+            <select className="filter-select" value={personFilter} onChange={(event) => setPersonFilter(event.target.value)}>
+              <option value="">All people</option>
+              {people.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="filter-bar timeline-toolbar">
           <div className="filter-chip-row">
             <button
               type="button"
@@ -176,6 +226,16 @@ export function TimelinePage({ refreshToken }: Props) {
                 {option}
               </button>
             ))}
+            {["today", "tomorrow", "this_week", "next_week", "later"].map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                className={`filter-chip ${slotFilter === slot ? "is-active" : ""}`}
+                onClick={() => setSlotFilter(slotFilter === slot ? "" : slot)}
+              >
+                {slot.replace(/_/g, " ")}
+              </button>
+            ))}
           </div>
 
           {hasScopedFilter ? (
@@ -188,6 +248,21 @@ export function TimelinePage({ refreshToken }: Props) {
               {tagFilter ? (
                 <button type="button" className="filter-chip is-active" onClick={() => setTagFilter("")}>
                   tag: #{tagFilter}
+                </button>
+              ) : null}
+              {threadFilter ? (
+                <button type="button" className="filter-chip is-active" onClick={() => setThreadFilter("")}>
+                  thread: {threads.find((thread) => thread.id === threadFilter)?.title ?? "linked"}
+                </button>
+              ) : null}
+              {personFilter ? (
+                <button type="button" className="filter-chip is-active" onClick={() => setPersonFilter("")}>
+                  person: {people.find((person) => person.id === personFilter)?.display_name ?? "linked"}
+                </button>
+              ) : null}
+              {slotFilter ? (
+                <button type="button" className="filter-chip is-active" onClick={() => setSlotFilter("")}>
+                  slot: {slotFilter.replace(/_/g, " ")}
                 </button>
               ) : null}
             </div>
@@ -224,6 +299,30 @@ export function TimelinePage({ refreshToken }: Props) {
                           <span className="badge badge-type">{item.payload.type ?? "note"}</span>
                           <span className={`badge badge-${item.payload.priority ?? "low"}`}>{item.payload.priority ?? "low"}</span>
                           <span className="badge badge-bucket">{item.payload.space ?? item.bucket_code}</span>
+                          {item.payload.thread_id ? (
+                            <button
+                              type="button"
+                              className="chip-link"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setThreadFilter(String(item.payload.thread_id));
+                              }}
+                            >
+                              thread
+                            </button>
+                          ) : null}
+                          {item.payload.future_slot ? (
+                            <button
+                              type="button"
+                              className="chip-link"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSlotFilter(String(item.payload.future_slot));
+                              }}
+                            >
+                              {String(item.payload.future_slot).replace(/_/g, " ")}
+                            </button>
+                          ) : null}
                         </div>
 
                         {zoom !== "compact" && (item.payload.tags ?? []).length > 0 ? (
@@ -256,6 +355,24 @@ export function TimelinePage({ refreshToken }: Props) {
                                   onClick={(event) => event.stopPropagation()}
                                 >
                                   {action.title}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {item.payload.linkedPeople && item.payload.linkedPeople.length > 0 ? (
+                          <div className="stack-xs">
+                            <span className="form-label">People</span>
+                            <div className="item-meta">
+                              {item.payload.linkedPeople.map((person) => (
+                                <Link
+                                  key={person.id}
+                                  to={`/people/${person.id}`}
+                                  className="chip-link"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  {person.display_name}
                                 </Link>
                               ))}
                             </div>

@@ -40,6 +40,8 @@ export type Thread = {
   started_at: string;
   closed_at: string | null;
   tags_json: string[];
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type QiBitType = "care" | "finance" | "legal" | "tech" | "task" | "note";
@@ -101,6 +103,14 @@ export type QiBit = {
   agentDraft: AgentDraft;
   insight: string;
   source: string;
+  bucket_code?: string;
+  thread_id?: string | null;
+  action_required?: boolean;
+  suggested_action?: string | null;
+  future_slot?: string | null;
+  peopleIds?: string[];
+  linkedPeople?: Person[];
+  linkedActions?: Action[];
 };
 
 export type Draft = {
@@ -131,7 +141,11 @@ export type Person = {
   type: string;
   email: string | null;
   phone: string | null;
+  address?: string | null;
   notes: string | null;
+  tags_json?: string[];
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type TimelineActionLink = Pick<Action, "id" | "title" | "status" | "priority" | "dueHint">;
@@ -146,6 +160,10 @@ export type TimelinePayload = {
   space?: string;
   createdAt?: string;
   updatedAt?: string;
+  thread_id?: string | null;
+  future_slot?: string | null;
+  peopleIds?: string[];
+  linkedPeople?: Array<Pick<Person, "id" | "display_name" | "relationship" | "type">>;
   linkedActionIds?: string[];
   linkedActions?: TimelineActionLink[];
   insight?: string;

@@ -86,7 +86,7 @@ export function KnowledgePage({ backendStatus }: Props) {
         <div>
           <div className="section-tag subdued">Knowledge</div>
           <h2>Docs are the source of truth.</h2>
-          <p>QiLife reads from repo docs in `docs/` so product, architecture, and deployment knowledge stay tied to the codebase.</p>
+          <p>QiLife reads from the configured docs root so product, architecture, and deployment knowledge stay tied to the active stack.</p>
         </div>
       </section>
 

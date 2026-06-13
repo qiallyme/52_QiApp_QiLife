@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2, History, Link2 } from "lucide-react";
 import { BackendUnavailableError, getActionFromBackend, getQiBitFromBackend, updateActionStatusOnBackend } from "../api/client";
 import type { Action, QiBit, TimelineRow } from "../types";
 import { formatDate, formatRelative } from "../utils/format";
-import { getActionById, getQiBitById, getTimelineItemById, saveActions, saveQiBit, updateActionStatus } from "../utils/storage";
+import { getActionById, getQiBitById, getThreadById, getTimelineItemById, saveActions, saveQiBit, updateActionStatus } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
 type Props = {
@@ -17,6 +17,7 @@ export function ActionDetailPage({ refreshToken }: Props) {
   const [action, setAction] = useState<Action | null>(null);
   const [qibit, setQiBit] = useState<QiBit | null>(null);
   const [timelineItem, setTimelineItem] = useState<TimelineRow | null>(null);
+  const [threadTitle, setThreadTitle] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -26,11 +27,11 @@ export function ActionDetailPage({ refreshToken }: Props) {
     if (!nextAction?.qibitId) {
       setQiBit(null);
       setTimelineItem(null);
-      return;
+    } else {
+      setQiBit(getQiBitById(nextAction.qibitId));
+      setTimelineItem(getTimelineItemById(nextAction.qibitId));
     }
-
-    setQiBit(getQiBitById(nextAction.qibitId));
-    setTimelineItem(getTimelineItemById(nextAction.qibitId));
+    setThreadTitle(nextAction?.thread_id ? getThreadById(nextAction.thread_id)?.title ?? nextAction.thread_id : null);
   }, [id, refreshToken]);
 
   useEffect(() => {
@@ -161,6 +162,17 @@ export function ActionDetailPage({ refreshToken }: Props) {
           <div className="detail-block">
             <span className="form-label">Due Hint</span>
             <span>{action.dueHint ?? "No due hint saved."}</span>
+          </div>
+
+          <div className="detail-block">
+            <span className="form-label">Thread</span>
+            {action.thread_id ? (
+              <Link to={`/threads/${action.thread_id}`} className="chip-link">
+                {threadTitle ?? action.thread_id}
+              </Link>
+            ) : (
+              <span>No thread linked.</span>
+            )}
           </div>
 
           <div className="detail-block">

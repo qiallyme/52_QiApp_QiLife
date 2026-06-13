@@ -1,26 +1,43 @@
-import { useState, useEffect } from "react";
-import type { Bucket, Thread } from "../types";
-import { StatusBadge, PriorityBadge, StateEmpty } from "./shared";
-import { formatDate } from "../utils/format";
-import { getThreads, saveThread, getBuckets } from "../utils/storage";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { createThreadOnBackend } from "../api/client";
+import type { Thread } from "../types";
+import { formatDate, formatRelative } from "../utils/format";
+import { getBuckets, getThreads, saveThread } from "../utils/storage";
+import { PriorityBadge, StateEmpty } from "./shared";
 
-export function ThreadsPage() {
+type Props = {
+  refreshToken: number;
+};
+
+export function ThreadsPage({ refreshToken }: Props) {
   const [threads, setThreads] = useState<Thread[]>([]);
   const buckets = getBuckets();
-
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", bucket_code: "inbox", priority: "normal" });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-
   const [statusFilter, setStatusFilter] = useState("all");
-  
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
     setThreads(getThreads());
-  }, []);
+  }, [refreshToken]);
 
-  const visible = threads.filter(
-    (t) => statusFilter === "all" || t.status === statusFilter
+  const visible = useMemo(
+    () =>
+      threads.filter((thread) => {
+        const statusMatch = statusFilter === "all" || thread.status === statusFilter;
+        if (!statusMatch) return false;
+        if (!search.trim()) return true;
+        const query = search.trim().toLowerCase();
+        return (
+          thread.title.toLowerCase().includes(query) ||
+          thread.description.toLowerCase().includes(query) ||
+          thread.bucket_code.toLowerCase().includes(query)
+        );
+      }),
+    [search, statusFilter, threads],
   );
 
   async function createThread() {
@@ -28,27 +45,38 @@ export function ThreadsPage() {
     setSaving(true);
     setSaveError("");
     try {
-      const newThread: Thread = {
-        id: crypto.randomUUID(),
-        title: form.title,
-        description: form.description,
-        bucket_code: form.bucket_code,
-        priority: form.priority,
-        status: "open",
-        started_at: new Date().toISOString(),
-        closed_at: null,
-        tags_json: [],
-        next_action: null,
-        due_date: null
-      };
-      
-      saveThread(newThread);
-      
+      let nextThread: Thread;
+      try {
+        nextThread = await createThreadOnBackend({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          bucket_code: form.bucket_code,
+          priority: form.priority,
+        });
+      } catch {
+        nextThread = {
+          id: crypto.randomUUID(),
+          title: form.title.trim(),
+          description: form.description.trim(),
+          bucket_code: form.bucket_code,
+          priority: form.priority,
+          status: "open",
+          started_at: new Date().toISOString(),
+          closed_at: null,
+          tags_json: [],
+          next_action: null,
+          due_date: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+
+      saveThread(nextThread);
+      setThreads(getThreads());
       setShowCreate(false);
       setForm({ title: "", description: "", bucket_code: "inbox", priority: "normal" });
-      setThreads(getThreads());
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Create failed.");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Create failed.");
     } finally {
       setSaving(false);
     }
@@ -56,87 +84,90 @@ export function ThreadsPage() {
 
   const counts = {
     all: threads.length,
-    open: threads.filter((t) => t.status === "open").length,
-    active: threads.filter((t) => t.status === "active").length,
-    closed: threads.filter((t) => t.status === "closed").length,
+    open: threads.filter((thread) => thread.status === "open").length,
+    active: threads.filter((thread) => thread.status === "active").length,
+    closed: threads.filter((thread) => thread.status === "closed").length,
   };
 
   return (
     <div className="page-stack">
       <section className="hero-panel compact-hero">
-        <div className="section-tag">Threads</div>
-        <h2>Cases, projects, and storylines.</h2>
-        <p>A thread groups the full situation — QiBits, actions, people, money, and context.</p>
+        <div className="stack-sm">
+          <div className="section-tag">Threads</div>
+          <h2>Cases, projects, and ongoing situations.</h2>
+          <p>Threads hold the running context around a situation so QiBits and actions do not live in isolation.</p>
+        </div>
+        <button className="btn btn-accent btn-sm" onClick={() => setShowCreate(true)}>
+          + New Thread
+        </button>
       </section>
 
-      <div className="card">
+      <div className="card dense-card stack-md">
         <div className="card-header">
-          <div className="filter-bar" style={{ flex: 1 }}>
-            {(["all", "open", "active", "closed"] as const).map((s) => (
+          <div className="filter-chip-row" style={{ flex: 1 }}>
+            {(["all", "open", "active", "closed"] as const).map((status) => (
               <button
-                key={s}
-                className={`btn btn-sm ${statusFilter === s ? "btn-primary" : "btn-ghost"}`}
-                onClick={() => setStatusFilter(s)}
+                key={status}
+                type="button"
+                className={`filter-chip ${statusFilter === status ? "is-active" : ""}`}
+                onClick={() => setStatusFilter(status)}
               >
-                {s} <span style={{ opacity: 0.65, marginLeft: 3 }}>{counts[s]}</span>
+                {status}
+                <span className="card-count">{counts[status]}</span>
               </button>
             ))}
           </div>
-          <button className="btn btn-accent btn-sm" onClick={() => setShowCreate(true)}>
-            + New Thread
-          </button>
+          <div className="search-wrap" style={{ maxWidth: 260 }}>
+            <input
+              className="search-input"
+              placeholder="Search threads"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
         </div>
 
-        {visible.length === 0 && (
-          <StateEmpty icon="◎" text="No threads yet. Create one to track a situation." />
+        {visible.length === 0 ? (
+          <StateEmpty icon="◎" text="No threads yet. Create one to track a real situation." />
+        ) : (
+          <div className="three-col">
+            {visible.map((thread) => (
+              <Link key={thread.id} to={`/threads/${thread.id}`} className="thread-card record-link-card">
+                <div className="compact-row spread">
+                  <strong>{thread.title}</strong>
+                  <span className={`badge badge-${thread.status.replace(/_/g, "_")}`}>{thread.status.replace(/_/g, " ")}</span>
+                </div>
+                <div className="compact-text">
+                  {thread.description || "No thread description saved yet."}
+                </div>
+                <div className="item-meta">
+                  <PriorityBadge priority={thread.priority} />
+                  <span className="badge badge-bucket">{thread.bucket_code}</span>
+                  {thread.due_date ? <span className="badge badge-triaged">Due {formatDate(thread.due_date)}</span> : null}
+                </div>
+                <div className="item-meta">
+                  <span className="item-sub">Started {formatRelative(thread.started_at)}</span>
+                  {thread.updated_at ? <span className="item-sub">Updated {formatDate(thread.updated_at)}</span> : null}
+                </div>
+                {thread.next_action ? <div className="compact-text">Next: {thread.next_action}</div> : null}
+              </Link>
+            ))}
+          </div>
         )}
-
-        <div className="three-col" style={{ marginTop: 4 }}>
-          {visible.map((t) => (
-            <div key={t.id} className="thread-card">
-              <div className="thread-card-header">
-                <div className="thread-card-title">{t.title}</div>
-                <StatusBadge status={t.status} />
-              </div>
-              {t.description && (
-                <div className="thread-card-desc">
-                  {t.description.length > 100
-                    ? t.description.slice(0, 100) + "…"
-                    : t.description}
-                </div>
-              )}
-              <div className="thread-card-footer">
-                <PriorityBadge priority={t.priority} />
-                <span className="badge badge-bucket">Spc: {t.bucket_code}</span>
-                {t.due_date && (
-                  <span className="badge" style={{ background: "rgba(192,68,58,0.1)", color: "var(--accent-red)" }}>
-                    Due {formatDate(t.due_date)}
-                  </span>
-                )}
-              </div>
-              {t.next_action && (
-                <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--ink-400)" }}>
-                  Next: {t.next_action}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* Create Thread Modal */}
-      {showCreate && (
+      {showCreate ? (
         <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-title">New Thread</div>
             <div className="form-grid">
               <div className="form-field">
                 <label className="form-label">Title *</label>
                 <input
                   className="text-input"
-                  placeholder="e.g. Surplus Check Recovery"
+                  placeholder="Surplus Check Recovery"
                   value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  onChange={(event) => setForm({ ...form, title: event.target.value })}
                   autoFocus
                 />
               </div>
@@ -144,9 +175,9 @@ export function ThreadsPage() {
                 <label className="form-label">Description</label>
                 <textarea
                   className="textarea-input"
-                  placeholder="What's this thread about?"
+                  placeholder="What situation does this thread track?"
                   value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onChange={(event) => setForm({ ...form, description: event.target.value })}
                 />
               </div>
               <div className="form-field">
@@ -154,10 +185,12 @@ export function ThreadsPage() {
                 <select
                   className="select-input"
                   value={form.bucket_code}
-                  onChange={(e) => setForm({ ...form, bucket_code: e.target.value })}
+                  onChange={(event) => setForm({ ...form, bucket_code: event.target.value })}
                 >
-                  {buckets.filter((b) => !b.is_system && b.code !== "00").map((b) => (
-                    <option key={b.code} value={b.code}>{b.name}</option>
+                  {buckets.filter((bucket) => !bucket.is_system).map((bucket) => (
+                    <option key={bucket.code} value={bucket.code}>
+                      {bucket.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -166,28 +199,28 @@ export function ThreadsPage() {
                 <select
                   className="select-input"
                   value={form.priority}
-                  onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  onChange={(event) => setForm({ ...form, priority: event.target.value })}
                 >
-                  {["normal", "high", "urgent", "critical"].map((p) => (
-                    <option key={p} value={p}>{p}</option>
+                  {["normal", "high", "urgent", "critical"].map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priority}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
-            {saveError && <div className="error-banner" style={{ marginTop: 12 }}>{saveError}</div>}
+            {saveError ? <div className="error-banner" style={{ marginTop: 12 }}>{saveError}</div> : null}
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button
-                className="btn btn-primary"
-                disabled={saving || !form.title.trim()}
-                onClick={createThread}
-              >
-                {saving ? "Creating…" : "Create Thread"}
+              <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" disabled={saving || !form.title.trim()} onClick={createThread}>
+                {saving ? "Creating..." : "Create Thread"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -259,12 +259,12 @@ export function mockAgentDraft(rawText: string): AgentDraft {
   };
 }
 
-export function mockIngestion(rawText: string, sourceType?: string): Draft {
-  const agentDraft = mockAgentDraft(rawText);
-  const now = new Date().toISOString();
+export function buildDraft(rawText: string, sourceType?: string, draftId?: string, agentDraftInput?: AgentDraft, createdAt?: string): Draft {
+  const agentDraft = agentDraftInput ?? mockAgentDraft(rawText);
+  const now = createdAt ?? new Date().toISOString();
 
   return {
-    id: `draft-${Math.random().toString(36).slice(2, 10)}`,
+    id: draftId ?? `draft-${Math.random().toString(36).slice(2, 10)}`,
     createdAt: now,
     updatedAt: now,
     rawText,
@@ -272,4 +272,8 @@ export function mockIngestion(rawText: string, sourceType?: string): Draft {
     status: "draft",
     agentDraft,
   };
+}
+
+export function mockIngestion(rawText: string, sourceType?: string): Draft {
+  return buildDraft(rawText, sourceType);
 }

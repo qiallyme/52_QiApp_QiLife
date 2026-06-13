@@ -4,7 +4,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { updateActionStatusOnBackend } from "../api/client";
 import type { Action, QiBit } from "../types";
 import { formatDate, formatRelative } from "../utils/format";
-import { getActions, getQiBits, updateActionStatus } from "../utils/storage";
+import { getActions, getQiBits, getThreadById, updateActionStatus } from "../utils/storage";
 import { StateEmpty } from "./shared";
 
 type Props = {
@@ -106,6 +106,11 @@ export function ActionsPage({ refreshToken }: Props) {
                       ) : (
                         <span className="compact-text">Unlinked capture</span>
                       )}
+                      {action.thread_id ? (
+                        <Link to={`/threads/${action.thread_id}`} className="inline-link subtle-link">
+                          {getThreadById(action.thread_id)?.title ?? "Open linked thread"}
+                        </Link>
+                      ) : null}
                       <span className="item-sub">{formatDate(action.createdAt)}</span>
                     </div>
                   </div>

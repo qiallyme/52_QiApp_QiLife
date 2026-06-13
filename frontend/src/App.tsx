@@ -1,6 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { checkBackendHealth, listActionsFromBackend, listQiBitsFromBackend, listTimelineFromBackend } from "./api/client";
+import { checkBackendHealth, listActionsFromBackend, listPeopleFromBackend, listQiBitsFromBackend, listThreadsFromBackend, listTimelineFromBackend } from "./api/client";
 
 import { AppShell } from "./components/app-shell";
 import { ContextDock } from "./components/context-dock";
@@ -11,6 +11,7 @@ import { KnowledgePage } from "./pages/knowledge-page";
 import { MorePage } from "./pages/more-page";
 import { PeoplePage } from "./pages/people-page";
 import { PlaceholderPage } from "./pages/placeholder-page";
+import { CockpitPage } from "./pages/cockpit-page";
 import { ThreadsPage } from "./pages/threads-page";
 import { TimelinePage } from "./pages/timeline-page";
 import { TodayPage } from "./pages/today-page";
@@ -18,7 +19,9 @@ import { CapturePage } from "./pages/capture-page";
 import { ReviewPage } from "./pages/review-page";
 import { QiBitDetailPage } from "./pages/qibit-detail-page";
 import { ActionDetailPage } from "./pages/action-detail-page";
-import { replaceActions, replaceQiBits, replaceTimelineItems } from "./utils/storage";
+import { PersonDetailPage } from "./pages/person-detail-page";
+import { ThreadDetailPage } from "./pages/thread-detail-page";
+import { replaceActions, replacePeople, replaceQiBits, replaceThreads, replaceTimelineItems } from "./utils/storage";
 
 export default function App() {
   const [refreshToken, setRefreshToken] = useState(0);
@@ -35,12 +38,20 @@ export default function App() {
 
     let active = true;
 
-    Promise.all([listQiBitsFromBackend(), listActionsFromBackend(), listTimelineFromBackend()])
-      .then(([qibits, actions, timeline]) => {
+    Promise.all([
+      listQiBitsFromBackend(),
+      listActionsFromBackend(),
+      listTimelineFromBackend(),
+      listThreadsFromBackend(),
+      listPeopleFromBackend(),
+    ])
+      .then(([qibits, actions, timeline, threads, people]) => {
         if (!active) return;
         replaceQiBits(qibits);
         replaceActions(actions);
         replaceTimelineItems(timeline);
+        replaceThreads(threads);
+        replacePeople(people);
         setRefreshToken((n) => n + 1);
       })
       .catch((error) => {
@@ -65,6 +76,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<TodayPage refreshToken={refreshToken} />} />
         <Route path="/capture" element={<CapturePage />} />
+        <Route path="/cockpit" element={<CockpitPage />} />
         <Route path="/review" element={<ReviewPage />} />
         <Route path="/timeline" element={<TimelinePage refreshToken={refreshToken} />} />
         <Route path="/knowledge" element={<KnowledgePage backendStatus={backendStatus} />} />
@@ -73,8 +85,10 @@ export default function App() {
         <Route path="/actions/:id" element={<ActionDetailPage refreshToken={refreshToken} />} />
         <Route path="/inbox" element={<InboxPage refreshToken={refreshToken} />} />
         <Route path="/people" element={<PeoplePage refreshToken={refreshToken} />} />
+        <Route path="/people/:id" element={<PersonDetailPage refreshToken={refreshToken} />} />
         <Route path="/more" element={<MorePage />} />
-        <Route path="/threads" element={<ThreadsPage />} />
+        <Route path="/threads" element={<ThreadsPage refreshToken={refreshToken} />} />
+        <Route path="/threads/:id" element={<ThreadDetailPage refreshToken={refreshToken} />} />
         <Route
           path="/calendar"
           element={

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class Settings(BaseModel):
     app_name: str = "QiLife API"
+    repo_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[2])
     data_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[2] / "data")
     database_filename: str = "qilife.sqlite"
 
@@ -25,6 +26,13 @@ class Settings(BaseModel):
         if override:
             return override
         return f"sqlite:///{self.db_path.as_posix()}"
+
+    @property
+    def docs_root(self) -> Path:
+        override = os.getenv("QILIFE_DOCS_ROOT")
+        if override:
+            return Path(override).resolve()
+        return (self.repo_root / "docs").resolve()
 
 
 @lru_cache(maxsize=1)

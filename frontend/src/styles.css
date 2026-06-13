@@ -263,20 +263,9 @@ a {
 }
 
 .dock-list {
-  list-style: none;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 12px;
-}
-
-.dock-list li {
-  padding: 10px 11px;
-  border-radius: var(--r-md);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--line-faint);
-  color: var(--ink-500);
-  font-size: 13px;
 }
 
 .page-stack,
@@ -486,6 +475,19 @@ a {
 
 .badge-high,
 .badge-waiting_on {
+  color: var(--accent-red);
+  background: rgba(255, 111, 124, 0.12);
+}
+
+.badge-normal,
+.badge-active {
+  color: var(--accent-cyan);
+  background: rgba(78, 161, 255, 0.12);
+}
+
+.badge-urgent,
+.badge-critical,
+.badge-closed {
   color: var(--accent-red);
   background: rgba(255, 111, 124, 0.12);
 }
@@ -744,6 +746,13 @@ a {
   color: var(--ink-900);
 }
 
+.form-grid,
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .modal-footer {
   display: flex;
   align-items: center;
@@ -782,7 +791,7 @@ a {
 
 .command-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
 }
 
@@ -820,6 +829,63 @@ a {
 
 .record-row-link {
   padding: 8px 9px;
+}
+
+.thread-card,
+.person-card {
+  min-height: 100%;
+}
+
+.person-card {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.cockpit-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cockpit-stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.cockpit-stat-value {
+  margin-top: 10px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.cockpit-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.cockpit-card {
+  min-height: 190px;
+}
+
+.cockpit-card-actions {
+  margin-top: auto;
+  justify-content: flex-start;
+}
+
+.person-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(78, 161, 255, 0.12);
+  color: var(--accent-cyan);
+  font-size: 12px;
+  font-weight: 700;
+  flex: 0 0 auto;
 }
 
 .chip-link {

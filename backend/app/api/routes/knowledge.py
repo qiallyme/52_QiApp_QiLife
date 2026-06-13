@@ -5,17 +5,24 @@ from urllib.parse import quote, unquote
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.config import get_settings
+
 router = APIRouter()
 
-DOCS_ROOT = Path(__file__).resolve().parents[4] / "docs"
+
+def _docs_root() -> Path:
+    return get_settings().docs_root
 
 
 def _iter_docs() -> list[Path]:
-    return sorted(path for path in DOCS_ROOT.rglob("*.md") if path.is_file())
+    docs_root = _docs_root()
+    if not docs_root.exists():
+        return []
+    return sorted(path for path in docs_root.rglob("*.md") if path.is_file())
 
 
 def _relative_doc_path(path: Path) -> str:
-    return path.relative_to(DOCS_ROOT).as_posix()
+    return path.relative_to(_docs_root()).as_posix()
 
 
 def _doc_id_for(path: Path) -> str:
@@ -23,9 +30,10 @@ def _doc_id_for(path: Path) -> str:
 
 
 def _resolve_doc_id(doc_id: str) -> Path:
+    docs_root = _docs_root()
     relative = Path(unquote(doc_id))
-    target = (DOCS_ROOT / relative).resolve()
-    docs_root = DOCS_ROOT.resolve()
+    target = (docs_root / relative).resolve()
+    docs_root = docs_root.resolve()
 
     if docs_root not in target.parents and target != docs_root:
         raise HTTPException(status_code=400, detail="Invalid document path")
