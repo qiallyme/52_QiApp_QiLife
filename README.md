@@ -32,7 +32,7 @@ If `VITE_API_BASE_URL` is omitted, the frontend still works in local fallback mo
 
 SQLite path defaults to:
 
-- `C:\QiLabs\60_QiApps\_qilife\data\db\qilife.sqlite`
+- `C:\QiLabs\100_QiApps\110_QiApp_QiLife\data\db\qilife.sqlite`
 
 ## Cloudflare Pages
 

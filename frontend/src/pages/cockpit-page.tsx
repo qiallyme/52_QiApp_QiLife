@@ -303,7 +303,7 @@ export function CockpitPage() {
         </div>
         <div className="compact-text">
           QiAccess launcher behavior now belongs here. The next repo-level step is to move these surface definitions and docs ownership into the promoted
-          QiLife workspace so `_QiAccess_Start` can stop being the canonical Git remote.
+          QiLife workspace so `10_QiAccess` can stop being the canonical Git remote.
         </div>
         <div className="compact-row wrap-gap">
           <Link className="inline-link" to="/knowledge">
