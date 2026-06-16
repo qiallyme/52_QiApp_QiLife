@@ -1,7 +1,7 @@
 flowchart TD
     %% === PROJECT GOALS ===
     %% Ultimate Goal: QiLife — Cody's private Personal LifeDesk
-    %% Current Goal: Phase 1 Spine complete, move to Phase 2 Daily Command Layer
+    %% Current Goal: Phase 1 Spine complete, Cadence analysis done, move to Phase 2 Daily Command Layer
 
     %% === START ===
     %% @project_start [start, closed, 2026-05-29, cody]
@@ -62,6 +62,10 @@ flowchart TD
     %% @phase1_ux_rescue [ai-task, closed, 2026-05-30, antigravity]
     phase1_ux_rescue("UX Rescue Pass<br/><sub>Dark-mode first redesign, high<br/>contrast inputs, mobile bottom<br/>navigation, removed fake API<br/>errors, accurate empty states.</sub>")
 
+    %% === CADENCE REFERENCE ANALYSIS (parallel branch) ===
+    %% @cadence_analysis [ai-task, closed, 2026-06-16, antigravity]
+    cadence_analysis("Cadence Reference Analysis<br/><sub>Inspected Cadence Obsidian plugin<br/>(v0.15.0) architecture: entity registry,<br/>nav, CSS design system, and mapped<br/>to QiLife types + routes.</sub>")
+
     %% === CONNECTIONS ===
     project_start --> phase0_docs
     phase0_docs --> phase1_schema
@@ -72,6 +76,7 @@ flowchart TD
     phase1_design --> phase1_mock_slice
     phase1_mock_slice --> phase1_ux_rescue
     phase1_ux_rescue --> phase1_detail_views
+    phase1_ux_rescue --> cadence_analysis
 
     phase1_detail_views --> phase2_today
     phase2_today --> phase2_calendar
@@ -87,7 +92,7 @@ flowchart TD
 
     %% === RECENT ===
     subgraph recent [RECENT]
-        phase1_ux_rescue
+        cadence_analysis
     end
 
     %% === STYLES ===
@@ -100,7 +105,8 @@ flowchart TD
     style phase1_frontend fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
     style phase1_design fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
     style phase1_mock_slice fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
-    style phase1_ux_rescue fill:#2d1f4e,stroke:#c084fc,color:#e9d5ff,stroke-width:2px
+    style phase1_ux_rescue fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
+    style cadence_analysis fill:#2d1f4e,stroke:#c084fc,color:#e9d5ff,stroke-width:2px
     style recent fill:transparent,stroke:#c084fc,color:#c084fc,stroke-width:2px,stroke-dasharray:5 5
 
     %% Open (soft green)
