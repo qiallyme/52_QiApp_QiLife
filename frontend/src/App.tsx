@@ -1,5 +1,5 @@
+import React, { useState, useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
-import { useState, useEffect } from "react";
 import { checkBackendHealth, listActionsFromBackend, listPeopleFromBackend, listQiBitsFromBackend, listThreadsFromBackend, listTimelineFromBackend } from "./api/client";
 
 import { AppShell } from "./components/app-shell";
@@ -22,6 +22,8 @@ import { ActionDetailPage } from "./pages/action-detail-page";
 import { PersonDetailPage } from "./pages/person-detail-page";
 import { ThreadDetailPage } from "./pages/thread-detail-page";
 import { replaceActions, replacePeople, replaceQiBits, replaceThreads, replaceTimelineItems } from "./utils/storage";
+
+const AlphaWorkbenchPage = React.lazy(() => import("./features/alpha_qilife_workbench/components/AlphaWorkbenchPage"));
 
 export default function App() {
   const [refreshToken, setRefreshToken] = useState(0);
@@ -127,6 +129,14 @@ export default function App() {
               description="Queries the full ledger with cited supporting records. AI suggestions staged via ai_outputs until approved. No silent writes to primary tables."
               phase="Phase 5"
             />
+          }
+        />
+        <Route
+          path="/alpha/qilife-workbench"
+          element={
+            <React.Suspense fallback={<div>Loading Workbench...</div>}>
+              <AlphaWorkbenchPage />
+            </React.Suspense>
           }
         />
       </Routes>

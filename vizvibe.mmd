@@ -66,6 +66,10 @@ flowchart TD
     %% @cadence_analysis [ai-task, closed, 2026-06-16, antigravity]
     cadence_analysis("Cadence Reference Analysis<br/><sub>Inspected Cadence Obsidian plugin<br/>(v0.15.0) architecture: entity registry,<br/>nav, CSS design system, and mapped<br/>to QiLife types + routes.</sub>")
 
+    %% === PHASE 2 WORKBENCH PROTOTYPE ===
+    %% @workbench_prototype [ai-task, closed, 2026-06-17, antigravity]
+    workbench_prototype("Workbench Alpha Prototype<br/><sub>Built direct Supabase schema,<br/>seeded mock data, and established<br/>read-only workbench prototype view<br/>under isolated alpha route.</sub>")
+
     %% === CONNECTIONS ===
     project_start --> phase0_docs
     phase0_docs --> phase1_schema
@@ -77,6 +81,7 @@ flowchart TD
     phase1_mock_slice --> phase1_ux_rescue
     phase1_ux_rescue --> phase1_detail_views
     phase1_ux_rescue --> cadence_analysis
+    cadence_analysis --> workbench_prototype
 
     phase1_detail_views --> phase2_today
     phase2_today --> phase2_calendar
@@ -92,7 +97,7 @@ flowchart TD
 
     %% === RECENT ===
     subgraph recent [RECENT]
-        cadence_analysis
+        workbench_prototype
     end
 
     %% === STYLES ===
@@ -106,7 +111,8 @@ flowchart TD
     style phase1_design fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
     style phase1_mock_slice fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
     style phase1_ux_rescue fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
-    style cadence_analysis fill:#2d1f4e,stroke:#c084fc,color:#e9d5ff,stroke-width:2px
+    style cadence_analysis fill:#1a1a2e,stroke:#a78bfa,color:#c4b5fd,stroke-width:1px
+    style workbench_prototype fill:#2d1f4e,stroke:#c084fc,color:#e9d5ff,stroke-width:2px
     style recent fill:transparent,stroke:#c084fc,color:#c084fc,stroke-width:2px,stroke-dasharray:5 5
 
     %% Open (soft green)
